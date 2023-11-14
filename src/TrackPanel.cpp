@@ -1473,7 +1473,7 @@ struct ChannelStack final : TrackPanelGroup {
       const wxRect& rect, unsigned iPass) override
    {
       TrackPanelGroup::Draw(context, rect, iPass);
-      if (iPass == TrackArtist::PassFocus && mpTrack->IsSelected()) {
+      if (iPass == TrackArtist::PassFocus/* && mpTrack->IsSelected()*/) {
          const auto channels = mpTrack->Channels();
          const auto pLast = *channels.rbegin();
          wxCoord yy = rect.GetTop();
@@ -1483,7 +1483,7 @@ struct ChannelStack final : TrackPanelGroup {
          for (auto pChannel : channels) {
             auto& view = ChannelView::Get(*pChannel);
             auto height = *pHeight++;
-            if (auto affordance = view.GetAffordanceControls())
+            if (view.GetAffordanceControls())
                height += kAffordancesAreaHeight;
             auto trackRect = wxRect(
                mLeftOffset,
