@@ -171,3 +171,10 @@ appimagetool/*
 .build.arm64/
 .conan/
 .debug/
+
+/.editorconfig
+/CHANGELOG.txt
+/INSTALL
+/CODE_OF_CONDUCT.md
+/CONTRIBUTING.md
+/BUILDING.md
