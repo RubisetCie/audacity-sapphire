@@ -1226,7 +1226,7 @@ DialogFactoryResults EffectUI::DialogFactory(wxWindow &parent,
                const auto pServices = dynamic_cast<EffectUIServices *>(effect);
                if (!pServices ||
                    !pServices->ShowHostInterface(*effect,
-                  window, DialogFactory, pInstance, *pAccess, true)
+                  window, DialogFactory, pInstance, *pAccess, false)
                )
                   return {};
                else if (!(pInstanceEx =
