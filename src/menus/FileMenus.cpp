@@ -520,9 +520,6 @@ BaseItemSharedPtr FileMenu()
       ),
 
       Section( "Import-Export",
-         Command( wxT("Export"), XXO("&Render Audio..."), OnExportAudio,
-            AudioIONotBusyFlag() | WaveTracksExistFlag(), wxT("Ctrl+Shift+E") ),
-              
          Menu( wxT("ExportOther"), XXO("Export"),
             Command( wxT("ExportLabels"), XXO("Export &Labels..."),
                OnExportLabels,
@@ -536,7 +533,10 @@ BaseItemSharedPtr FileMenu()
                AudioIONotBusyFlag() ),
             Command( wxT("ImportRaw"), XXO("&Raw Data..."), OnImportRaw,
                AudioIONotBusyFlag() )
-         )
+         ),
+
+         Command( wxT("Export"), XXO("&Render Audio..."), OnExportAudio,
+            AudioIONotBusyFlag() | WaveTracksExistFlag(), wxT("Ctrl+Shift+E") )
       ),
 
       Section( "Exit",
