@@ -225,7 +225,7 @@ void ExportFilePanel::PopulateOrExchange(ShuttleGui& S)
 }
 
 void ExportFilePanel::Init(const wxFileName& filename,
-                           const wxString& format,
+                           int selectedFormatIndex,
                            int sampleRate,
                            int channels,
                            const ExportProcessor::Parameters& parameters,
@@ -236,21 +236,6 @@ void ExportFilePanel::Init(const wxFileName& filename,
    mSampleRate = sampleRate == 0
       ? ProjectRate::Get(mProject).GetRate()
       : sampleRate;
-
-   auto selectedFormatIndex = 0;
-   if(!format.empty())
-   {
-      auto counter = 0;
-      for(auto [plugin, formatIndex] : ExportPluginRegistry::Get())
-      {
-         if(plugin->GetFormatInfo(formatIndex).format.IsSameAs(format))
-         {
-            selectedFormatIndex = counter;
-            break;
-         }
-         ++counter;
-      }
-   }
 
    if(mixerSpec != nullptr)
    {

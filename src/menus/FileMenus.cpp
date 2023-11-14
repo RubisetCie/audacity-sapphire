@@ -60,10 +60,19 @@ void DoExport(AudacityProject &project, const FileExtension &format)
             false);
          return;
       }
-      ExportAudioDialog dialog(&ProjectWindow::Get(project),
+
+      // Prompt for folder before opening the export dialog
+      wxWindow* projectWindow = &ProjectWindow::Get(project);
+      wxFileName filename;
+      int selectedFormatIndex = -1;
+      if (!ExportAudioDialog::RunFolderExplorer(projectWindow, project.GetProjectName(), format, filename, selectedFormatIndex))
+         return;
+
+      // Open the export dialog
+      ExportAudioDialog dialog(projectWindow,
                                project,
-                               project.GetProjectName(),
-                               format);
+                               filename,
+                               selectedFormatIndex);
       dialog.ShowModal();
    }
    else {
@@ -511,10 +520,10 @@ BaseItemSharedPtr FileMenu()
       ),
 
       Section( "Import-Export",
-         Command( wxT("Export"), XXO("&Export Audio..."), OnExportAudio,
+         Command( wxT("Export"), XXO("&Render Audio..."), OnExportAudio,
             AudioIONotBusyFlag() | WaveTracksExistFlag(), wxT("Ctrl+Shift+E") ),
               
-         Menu( wxT("ExportOther"), XXO("Export Other"),
+         Menu( wxT("ExportOther"), XXO("Export"),
             Command( wxT("ExportLabels"), XXO("Export &Labels..."),
                OnExportLabels,
                AudioIONotBusyFlag() | LabelTracksExistFlag() )

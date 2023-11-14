@@ -14553,12 +14553,8 @@ msgid "&Backup Project..."
 msgstr "Sauvegarde d’un projet…"
 
 #: src/menus/FileMenus.cpp
-msgid "&Export Audio..."
+msgid "&Render Audio..."
 msgstr "&Exporter l’audio…"
-
-#: src/menus/FileMenus.cpp
-msgid "Export Other"
-msgstr "Exporter autre"
 
 # trebmuh to check (accélérateur)
 #: src/menus/FileMenus.cpp
@@ -19241,7 +19237,7 @@ msgid "Add Label Track"
 msgstr "Ajouter une piste de marqueur"
 
 #: src/tracks/ui/BackgroundCell.cpp
-msgid "Export Audio..."
+msgid "Render Audio..."
 msgstr "Exporter l’audio…"
 
 #: src/tracks/ui/BrushHandle.cpp

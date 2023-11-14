@@ -54,11 +54,13 @@ class ExportAudioDialog final : public wxDialogWrapper
 public:
    ExportAudioDialog(wxWindow* parent,
                      AudacityProject& project,
-                     const wxString& defaultName,
-                     const wxString& defaultFormat);
+                     const wxFileName& filename,
+                     int defaultFormat);
    ~ExportAudioDialog() override;
 
    bool Show(bool show = true) override;
+
+   static bool RunFolderExplorer(wxWindow* parent, const wxString& projectName, const wxString& format, wxFileName& filename, int& filterIndex);
 private:
    
    void PopulateOrExchange(ShuttleGui& S);

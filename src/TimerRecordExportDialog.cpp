@@ -4,6 +4,7 @@
 
 #include "ShuttleGui.h"
 #include "export/ExportFilePanel.h"
+#include "ExportPluginRegistry.h"
 #include "Export.h"
 #include "TagsEditor.h"
 
@@ -35,7 +36,23 @@ void TimerRecordExportDialog::Bind(wxFileName& filename,
    mSampleRate = &sampleRate;
    mChannels = &channels;
    mParameters = &parameters;
-   mExportFilePanel->Init(filename, format, sampleRate, channels, parameters);
+
+   auto selectedFormatIndex = 0;
+   if (!format.empty())
+   {
+      auto counter = 0;
+      for (auto [plugin, formatIndex] : ExportPluginRegistry::Get())
+      {
+         if (plugin->GetFormatInfo(formatIndex).format.IsSameAs(format))
+         {
+            selectedFormatIndex = counter;
+            break;
+         }
+         counter++;
+      }
+   }
+
+   mExportFilePanel->Init(filename, selectedFormatIndex, sampleRate, channels, parameters);
 }
 
 void TimerRecordExportDialog::PopulateOrExchange(ShuttleGui& S)

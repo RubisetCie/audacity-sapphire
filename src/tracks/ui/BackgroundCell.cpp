@@ -161,7 +161,7 @@ auto BackgroundCell::GetMenuItems(
       { L"NewStereoTrack", XO("Add Stereo Track") },
       { L"NewLabelTrack", XO("Add Label Track"),  },
       {},
-      { L"Export", XO("Export Audio..."),  },
+      { L"Export", XO("Render Audio..."),  },
       {},
       { L"SelectAll", XO("Select All") },
    };

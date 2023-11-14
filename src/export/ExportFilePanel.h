@@ -48,7 +48,7 @@ public:
     * \param mixerSpec Try use custom channel mapping, `channels` argument will be igonred
     */
    void Init(const wxFileName& filename,
-             const wxString& format = wxEmptyString,
+             int selectedFormatIndex = 0,
              int sampleRate = 0,
              int channels = 0,
              const ExportProcessor::Parameters& parameters = {},
@@ -56,6 +56,8 @@ public:
    void SetInitialFocus();
 
    void SetCustomMappingEnabled(bool enabled);
+
+   static bool FolderBrowse();
 
    wxString GetPath() const;
    wxString GetFullName();

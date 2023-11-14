@@ -41,6 +41,7 @@
 #include "TagsEditor.h"
 #include "ExportFilePanel.h"
 #include "ExportProgressUI.h"
+#include "ExportPluginRegistry.h"
 #include "WindowAccessible.h"
 
 #if wxUSE_ACCESSIBILITY
@@ -143,8 +144,8 @@ END_EVENT_TABLE()
 
 ExportAudioDialog::ExportAudioDialog(wxWindow* parent,
                                      AudacityProject& project,
-                                     const wxString& defaultName,
-                                     const wxString& defaultFormat)
+                                     const wxFileName& filename,
+                                     int defaultFormat)
    : wxDialogWrapper(parent, wxID_ANY, XO("Export Audio"))
    , mProject(project)
 {
@@ -154,29 +155,11 @@ ExportAudioDialog::ExportAudioDialog(wxWindow* parent,
    PopulateOrExchange(S);
    
    SetMinSize({GetBestSize().GetWidth(), -1});
-   
-   wxFileName filename;
-   auto exportPath = ExportAudioDefaultPath.Read();
-   if(exportPath.empty())
-      exportPath = FileNames::FindDefaultPath(FileNames::Operation::Export);
-   filename.SetPath(exportPath);
-
-   //extension will be set in `ChangeFormat`
-   filename.SetEmptyExt();
-   if(defaultName.empty())
-      //i18n-hint: default exported file name when exporting from unsaved project
-      filename.SetName(_("untitled"));
-   else
-      filename.SetName(defaultName);
 
    int sampleRate{};
    ExportAudioSampleRate.Read(&sampleRate);
 
-   wxString format = defaultFormat;
-   if(format.empty())
-      ExportAudioDefaultFormat.Read(&format);
-
-   mExportOptionsPanel->Init(filename, format, sampleRate);
+   mExportOptionsPanel->Init(filename, defaultFormat, sampleRate);
 
    auto& tracks = TrackList::Get(mProject);
    const auto labelTracks = tracks.Any<LabelTrack>();
@@ -385,6 +368,54 @@ void ExportAudioDialog::PopulateOrExchange(ShuttleGui& S)
    S.EndVerticalLay();
 }
 
+bool ExportAudioDialog::RunFolderExplorer(wxWindow* parent, const wxString& projectName, const wxString& format, wxFileName& filename, int& filterIndex)
+{
+   // Retrieve the default export path
+   auto exportPath = ExportAudioDefaultPath.Read();
+   if (exportPath.empty())
+      exportPath = FileNames::FindDefaultPath(FileNames::Operation::Export);
+   filename.SetPath(exportPath);
+
+   // Compute default format
+   wxString defaultFormat(format);
+   if (defaultFormat.empty())
+      ExportAudioDefaultFormat.Read(&defaultFormat);
+
+   // Extension will be set depending on the format
+   if (projectName.empty())
+      filename.SetName(_("untitled"));
+   else
+      filename.SetName(projectName);
+
+   int counter = 0;
+   FileNames::FileTypes fileTypes;
+   for (auto [plugin, formatIndex] : ExportPluginRegistry::Get())
+   {
+      const auto formatInfo = plugin->GetFormatInfo(formatIndex);
+      if (filterIndex == -1 && formatInfo.format.IsSameAs(defaultFormat))
+      {
+         filterIndex = counter;
+         filename.SetExt(formatInfo.extensions[0].BeforeFirst(' ').Lower());
+      }
+      fileTypes.emplace_back(formatInfo.description, formatInfo.extensions);
+      counter++;
+   }
+
+   wxFileDialog fd(parent, _("Choose a location to save the exported files"),
+      filename.GetPath(),
+      filename.GetFullName(),
+      FileNames::FormatWildcard(fileTypes),
+      wxFD_SAVE);
+   fd.SetFilterIndex(filterIndex);
+
+   if (fd.ShowModal() == wxID_OK)
+   {
+      filename = fd.GetPath();
+      filterIndex = fd.GetFilterIndex();
+      return true;
+   }
+   return false;
+}
 
 void ExportAudioDialog::OnExportRangeChange(wxCommandEvent& event)
 {
