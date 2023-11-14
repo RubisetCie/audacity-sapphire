@@ -1,4 +1,4 @@
-# Audacity
+# Audacity Sapphire
 
 [**Audacity**](https://www.audacityteam.org) is an easy-to-use, multi-track audio editor and recorder for Windows, macOS, GNU/Linux and other operating systems.
 
@@ -10,13 +10,16 @@
 - **Scripting** in Python, Perl, or any other language that supports named pipes.
 - **Nyquist** a powerful built-in scripting language that may also be used to create plugins.
 - **Editing** multi-track editing with sample accuracy and arbitrary sample rates.
-- **Accessibility** for VI users.
+- **Accessibility** for its users.
 - **Analysis and visualization** tools to analyze audio or other signal data.
 
 ## Changes
 
-For end users, the latest Windows and macOS release version of Audacity is available from the [Audacity website](https://www.audacityteam.org/download/).
-Help with using Audacity is available [here](https://audacityteam.org/help/).
+The *Sapphire* version includes quality of life changes that helps me in my workflow, including:
+
+- File explorer prompt on audio rendering before the actual export dialog.
+- Audio cursor line extends to multiple tracks below.
+- Non-modal dialogs for non-realtime effects.
 
 ## Building
 
