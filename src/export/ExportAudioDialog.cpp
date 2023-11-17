@@ -34,7 +34,6 @@
 #include <wx/event.h>
 
 #include "ShuttleGui.h"
-#include "ProjectWindow.h"
 #include "AudacityMessageBox.h"
 #include "Theme.h"
 #include "HelpSystem.h"
@@ -42,6 +41,7 @@
 #include "ExportFilePanel.h"
 #include "ExportProgressUI.h"
 #include "ExportPluginRegistry.h"
+#include "ImportExport.h"
 #include "WindowAccessible.h"
 
 #if wxUSE_ACCESSIBILITY
@@ -77,8 +77,6 @@ ChoiceSetting ExportAudioSplitNamePolicy { L"/ExportAudioDialog/SplitNamePolicy"
    },
    0
 };
-
-IntSetting ExportAudioSampleRate { L"/ExportAudioDialog/SampleRate", 0 }; // use project rate until overwritten
 
 BoolSetting ExportAudioIncludeAudioBeforeFirstLabel { L"/ExportAudioDialog/IncludeAudioBeforeFirstLabel", false };
 
@@ -156,10 +154,15 @@ ExportAudioDialog::ExportAudioDialog(wxWindow* parent,
    
    SetMinSize({GetBestSize().GetWidth(), -1});
 
-   int sampleRate{};
-   ExportAudioSampleRate.Read(&sampleRate);
+   auto sampleRate = ImportExport::Get(project).GetPreferredExportRate();
+   if(sampleRate == ImportExport::InvalidRate)
+   {
+      auto& tracks = TrackList::Get(project);
+      for(const auto track : tracks.Any<WaveTrack>())
+         sampleRate = std::max(sampleRate, track->GetRate());
+   }
 
-   mExportOptionsPanel->Init(filename, defaultFormat, sampleRate);
+   mExportOptionsPanel->Init(filename, sampleRate, defaultFormat);
 
    auto& tracks = TrackList::Get(mProject);
    const auto labelTracks = tracks.Any<LabelTrack>();
@@ -639,9 +642,9 @@ void ExportAudioDialog::OnExport(wxCommandEvent &event)
    
    if(result == ExportResult::Success || result == ExportResult::Stopped)
    {
-      ExportAudioSampleRate.Write(mExportOptionsPanel->GetSampleRate());
+      ImportExport::Get(mProject).SetPreferredExportRate(mExportOptionsPanel->GetSampleRate());
+
       ExportAudioDefaultFormat.Write(selectedPlugin->GetFormatInfo(selectedFormat).format);
-      ExportAudioSampleRate.Write(mExportOptionsPanel->GetSampleRate());
       ExportAudioDefaultPath.Write(mExportOptionsPanel->GetPath());
 
       ShuttleGui S(this, eIsSavingToPrefs);
