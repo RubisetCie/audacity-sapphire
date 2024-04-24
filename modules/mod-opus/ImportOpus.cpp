@@ -41,7 +41,7 @@ public:
    ~OpusImportPlugin();
 
    wxString GetPluginStringID() override;
-   TranslatableString GetPluginFormatDescription() override; 
+   TranslatableString GetPluginFormatDescription() override;
    std::unique_ptr<ImportFileHandle> Open(
      const FilePath &Filename, AudacityProject*) override;
 };
@@ -56,11 +56,11 @@ public:
 
    TranslatableString GetFileDescription() override;
    ByteCount GetFileUncompressedBytes() override;
-   void Import(ImportProgressListener &progressListener,
-               WaveTrackFactory *trackFactory,
-               TrackHolders &outTracks,
-               Tags *tags) override;
-   
+   void Import(
+      ImportProgressListener& progressListener, WaveTrackFactory* trackFactory,
+      TrackHolders& outTracks, Tags* tags,
+      std::optional<LibFileFormats::AcidizerTags>& outAcidTags) override;
+
    wxInt32 GetStreamCount() override;
    const TranslatableStrings &GetStreamInfo() override;
    void SetStreamUsage(wxInt32 StreamID, bool Use) override;
@@ -117,7 +117,7 @@ TranslatableString OpusImportPlugin::GetPluginFormatDescription()
 }
 
 std::unique_ptr<ImportFileHandle> OpusImportPlugin::Open(const FilePath &filename, AudacityProject*)
-{   
+{
    auto handle = std::make_unique<OpusImportFileHandle>(filename);
 
    if (!handle->IsOpen())
@@ -171,13 +171,13 @@ auto OpusImportFileHandle::GetFileUncompressedBytes() -> ByteCount
    return 0;
 }
 
-void OpusImportFileHandle::Import(ImportProgressListener &progressListener,
-                                     WaveTrackFactory *trackFactory,
-                                     TrackHolders &outTracks,
-                                     Tags *tags)
+void OpusImportFileHandle::Import(
+   ImportProgressListener& progressListener, WaveTrackFactory* trackFactory,
+   TrackHolders& outTracks, Tags* tags,
+   std::optional<LibFileFormats::AcidizerTags>&)
 {
    BeginImport();
-   
+
    outTracks.clear();
 
    auto trackList = ImportUtils::NewWaveTrack(
@@ -211,7 +211,7 @@ void OpusImportFileHandle::Import(ImportProgressListener &progressListener,
 
       if (linkChannels != mNumChannels)
       {
-         NotifyImportFailed(progressListener, XO("file has changed the number of channels in the middle."));
+         NotifyImportFailed(progressListener, XO("File has changed the number of channels in the middle."));
          return;
       }
 

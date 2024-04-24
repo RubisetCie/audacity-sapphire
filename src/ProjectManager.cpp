@@ -7,43 +7,37 @@ ProjectManager.cpp
 Paul Licameli split from AudacityProject.cpp
 
 **********************************************************************/
-
 #include "ProjectManager.h"
-
-
 
 #include "ActiveProject.h"
 #include "AdornedRulerPanel.h"
 #include "AudioIO.h"
 #include "Clipboard.h"
 #include "FileNames.h"
-#include "Menus.h"
+#include "MenuCreator.h"
 #include "ModuleManager.h"
 #include "Project.h"
 #include "ProjectAudioIO.h"
 #include "ProjectAudioManager.h"
 #include "ProjectFileIO.h"
+#include "ProjectFileIOExtension.h"
 #include "ProjectFileManager.h"
 #include "ProjectHistory.h"
-#include "ProjectSelectionManager.h"
-#include "ProjectWindows.h"
 #include "ProjectRate.h"
 #include "ProjectSettings.h"
 #include "ProjectStatus.h"
 #include "ProjectWindow.h"
+#include "ProjectWindows.h"
 #include "SelectUtilities.h"
 #include "TrackPanel.h"
 #include "TrackUtilities.h"
 #include "UndoManager.h"
+#include "Viewport.h"
 #include "WaveTrack.h"
 #include "wxFileNameWrapper.h"
 #include "Import.h"
-#include "import/ImportMIDI.h"
 #include "QualitySettings.h"
 #include "toolbars/MeterToolBar.h"
-#include "toolbars/SelectionBar.h"
-#include "toolbars/SpectralSelectionBar.h"
-#include "toolbars/TimeToolBar.h"
 #include "toolbars/ToolManager.h"
 #include "AudacityMessageBox.h"
 #include "widgets/FileHistory.h"
@@ -171,23 +165,9 @@ void InitProjectWindow( ProjectWindow &window )
    if (!pProject)
       return;
    auto &project = *pProject;
+   auto &viewport = Viewport::Get(project);
 
-#ifdef EXPERIMENTAL_DA2
-   SetBackgroundColour(theTheme.Colour( clrMedium ));
-#endif
-   // Note that the first field of the status bar is a dummy, and its width is set
-   // to zero latter in the code. This field is needed for wxWidgets 2.8.12 because
-   // if you move to the menu bar, the first field of the menu bar is cleared, which
-   // is undesirable behaviour.
-   // In addition, the help strings of menu items are by default sent to the first
-   // field. Currently there are no such help strings, but it they were introduced, then
-   // there would need to be an event handler to send them to the appropriate field.
-   auto statusBar = window.CreateStatusBar(4);
-#if wxUSE_ACCESSIBILITY
-   // so that name can be set on a standard control
-   statusBar->SetAccessible(safenew WindowAccessible(statusBar));
-#endif
-   statusBar->SetName(wxT("status_line"));     // not localized
+   auto statusBar = window.CreateProjectStatusBar();
 
    auto &viewInfo = ViewInfo::Get( project );
 
@@ -292,7 +272,7 @@ void InitProjectWindow( ProjectWindow &window )
    // MM: Give track panel the focus to ensure keyboard commands work
    trackPanel.SetFocus();
 
-   window.FixScrollbars();
+   viewport.UpdateScrollbarsForTracks();
    ruler.SetLeftOffset(viewInfo.GetLeftOffset());  // bevel on AdornedRuler
 
    //
@@ -317,11 +297,7 @@ void InitProjectWindow( ProjectWindow &window )
    window.UpdateStatusWidths();
    auto msg = XO("Welcome to Audacity version %s")
       .Format( AUDACITY_VERSION_STRING );
-   ProjectManager::Get( project ).SetStatusText( msg, mainStatusBarField );
-
-#ifdef EXPERIMENTAL_DA2
-   ClearBackground();// For wxGTK.
-#endif
+   ProjectManager::Get( project ).SetStatusText( msg, MainStatusBarField() );
 }
 
 AudacityProject *ProjectManager::New()
@@ -330,7 +306,7 @@ AudacityProject *ProjectManager::New()
    bool bMaximized = false;
    bool bIconized = false;
    GetNextWindowPlacement(&wndRect, &bMaximized, &bIconized);
-   
+
    // Create and show a NEW project
    // Use a non-default deleter in the smart pointer!
    auto sp = AudacityProject::Create();
@@ -345,7 +321,7 @@ AudacityProject *ProjectManager::New()
    // There is a dependency on the order of initialisation.
    // The menus must be created, and registered, before
    // InitProjectWindows can UpdateMenus.
-   MenuManager::Get(project).CreateMenusAndCommands(project);
+   MenuCreator::Get(project).CreateMenusAndCommands();
 
    InitProjectWindow( window );
 
@@ -360,7 +336,7 @@ AudacityProject *ProjectManager::New()
 
    projectHistory.InitialState();
    projectManager.RestartTimer();
-   
+
    if(bMaximized) {
       window.Maximize(true);
    }
@@ -368,29 +344,23 @@ AudacityProject *ProjectManager::New()
       // if the user close down and iconized state we could start back up and iconized state
       // window.Iconize(TRUE);
    }
-   
+
    //Initialise the Listeners
    auto gAudioIO = AudioIO::Get();
    gAudioIO->SetListener(
       ProjectAudioManager::Get( project ).shared_from_this() );
-   auto &projectSelectionManager = ProjectSelectionManager::Get( project );
-   SelectionBar::Get( project ).SetListener( &projectSelectionManager );
-#ifdef EXPERIMENTAL_SPECTRAL_EDITING
-   SpectralSelectionBar::Get( project ).SetListener( &projectSelectionManager );
-#endif
-   TimeToolBar::Get( project ).SetListener( &projectSelectionManager );
-      
+
    //Set the NEW project as active:
    SetActiveProject(p);
-   
+
    // Okay, GetActiveProject() is ready. Now we can get its CommandManager,
    // and add the shortcut keys to the tooltips.
    ToolManager::Get( *p ).RegenerateTooltips();
-   
+
    ModuleManager::Get().Dispatch(ProjectInitialized);
-   
+
    window.Show(true);
-   
+
    return p;
 }
 
@@ -415,6 +385,7 @@ void ProjectManager::OnCloseWindow(wxCloseEvent & event)
    const auto &settings = ProjectSettings::Get( project );
    auto &projectAudioIO = ProjectAudioIO::Get( project );
    auto &tracks = TrackList::Get( project );
+   auto &viewport = Viewport::Get(project);
    auto &window = ProjectWindow::Get( project );
    auto gAudioIO = AudioIO::Get();
 
@@ -449,7 +420,7 @@ void ProjectManager::OnCloseWindow(wxCloseEvent & event)
       ProjectAudioManager::Get( project ).Stop();
 
       projectAudioIO.SetAudioIOToken(0);
-      window.RedrawProject();
+      viewport.Redraw();
    }
    else if (gAudioIO->IsMonitoring()) {
       gAudioIO->StopStream();
@@ -460,8 +431,8 @@ void ProjectManager::OnCloseWindow(wxCloseEvent & event)
 
    // We may not bother to prompt the user to save, if the
    // project is now empty.
-   if (!sbSkipPromptingForSave 
-      && event.CanVeto() 
+   if (!sbSkipPromptingForSave
+      && event.CanVeto()
       && (settings.EmptyCanBeDirty() || bHasTracks)) {
       if ( UndoManager::Get( project ).UnsavedChanges() ) {
          TitleRestorer Restorer( window, project );// RAII
@@ -487,6 +458,15 @@ void ProjectManager::OnCloseWindow(wxCloseEvent & event)
          }
       }
    }
+
+   // Ask extensions if they allow the project to be closed
+   if (ProjectFileIOExtensionRegistry::OnClose(mProject) == OnCloseAction::Veto
+      && event.CanVeto())
+   {
+      event.Veto();
+      return;
+   }
+
 #ifdef __WXMAC__
    // Fix bug apparently introduced into 2.1.2 because of wxWidgets 3:
    // closing a project that was made full-screen (as by clicking the green dot
@@ -736,8 +716,8 @@ AudacityProject *ProjectManager::OpenProject(
 
       auto &projectFileIO = ProjectFileIO::Get( *pProject );
       if( projectFileIO.IsRecovered() ) {
-         auto &window = ProjectWindow::Get( *pProject );
-         window.Zoom( window.GetZoomOfToFit() );
+         auto &viewport = Viewport::Get(*pProject);
+         viewport.Zoom(viewport.GetZoomOfToFit());
          // "Project was recovered" replaces "Create new project" in Undo History.
          auto &undoManager = UndoManager::Get( *pProject );
          undoManager.RemoveStates(0, 1);
@@ -784,7 +764,7 @@ void ProjectManager::OnTimer(wxTimerEvent& WXUNUSED(event))
 
    for (auto& meterToolBar : meterToolBars)
       meterToolBar.get().UpdateControls();
-   
+
    auto gAudioIO = AudioIO::Get();
    // gAudioIO->GetNumCaptureChannels() should only be positive
    // when we are recording.
@@ -797,7 +777,7 @@ void ProjectManager::OnTimer(wxTimerEvent& WXUNUSED(event))
             .Format( GetHoursMinsString(iRecordingMins) );
 
          // Do not change mLastMainStatusMessage
-         SetStatusText(sMessage, mainStatusBarField);
+         SetStatusText(sMessage, MainStatusBarField());
       }
    }
 
@@ -823,14 +803,23 @@ void ProjectManager::OnStatusChange(StatusBarField field)
    const auto &msg = ProjectStatus::Get( project ).Get( field );
    SetStatusText( msg, field );
    
-   if ( field == mainStatusBarField )
+   if ( field == MainStatusBarField() )
       // When recording, let the NEW status message stay at least as long as
       // the timer interval (if it is not replaced again by this function),
       // before replacing it with the message about remaining disk capacity.
       RestartTimer();
 }
 
-void ProjectManager::SetStatusText( const TranslatableString &text, int number )
+void ProjectManager::SetStatusText(
+   const TranslatableString& text, const StatusBarField& field)
+{
+   const auto index = ProjectStatusFieldsRegistry::GetFieldIndex(mProject, field);
+
+   if (index >= 0)
+      SetStatusText(text, index);
+}
+
+void ProjectManager::SetStatusText(const TranslatableString& text, int number)
 {
    auto &project = mProject;
    auto pWindow = ProjectWindow::Find( &project );
@@ -880,7 +869,7 @@ int ProjectManager::GetEstimatedRecordingMinsLeftOnDisk(long lCaptureChannels) {
    double dRecTime = 0.0;
    double bytesOnDiskPerSample = SAMPLE_SIZE_DISK(oCaptureFormat);
    dRecTime = lFreeSpace.GetHi() * 4294967296.0 + lFreeSpace.GetLo();
-   dRecTime /= bytesOnDiskPerSample;   
+   dRecTime /= bytesOnDiskPerSample;
    dRecTime /= lCaptureChannels;
    dRecTime /= ProjectRate::Get( project ).GetRate();
 

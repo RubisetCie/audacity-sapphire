@@ -34,6 +34,11 @@ typedef bool (*progress_callback_t)( void *userData, float percent );
 class ExtImportItem;
 class WaveTrack;
 
+namespace LibFileFormats
+{
+struct AcidizerTags;
+}
+
 using ExtImportItems = std::vector<std::unique_ptr<ExtImportItem>>;
 using TrackHolders = std::vector<std::shared_ptr<TrackList>>;
 
@@ -41,7 +46,7 @@ class ExtImportItem
 {
   public:
   /**
-   * Unique string ID exists for each filter, it is not translateable
+   * Unique string ID exists for each filter, it is not translatable
    * and can be stored in config. This ID is matched internally with a
    * translated name of a filter.
    * Unknown IDs will be presented and saved as-is.
@@ -83,7 +88,7 @@ public:
    // Objects of this type are statically constructed in files implementing
    // subclasses of ImportPlugin
    struct IMPORT_EXPORT_API RegisteredImportPlugin final
-      : public Registry::RegisteredItem<ImporterItem>
+      : Registry::RegisteredItem<ImporterItem>
    {
       RegisteredImportPlugin(
          const Identifier &id, // an internal string naming the plug-in
@@ -170,17 +175,20 @@ public:
     std::unique_ptr<ExtImportItem> CreateDefaultImportItem();
 
    // if false, the import failed and errorMessage will be set.
-   bool Import( AudacityProject &project,
-              const FilePath &fName,
-              ImportProgressListener* importProgressListener,
-              WaveTrackFactory *trackFactory,
-              TrackHolders &tracks,
-              Tags *tags,
-              TranslatableString &errorMessage);
+    bool Import(
+       AudacityProject& project, const FilePath& fName,
+       ImportProgressListener* importProgressListener,
+       WaveTrackFactory* trackFactory, TrackHolders& tracks, Tags* tags,
+       std::optional<LibFileFormats::AcidizerTags>& outAcidTags,
+       TranslatableString& errorMessage);
 
-private:
+ private:
+    struct Traits : Registry::DefaultTraits
+    {
+       using LeafTypes = List<ImporterItem>;
+   };
    struct IMPORT_EXPORT_API ImporterItem final : Registry::SingleItem {
-      static Registry::GroupItemBase &Registry();
+      static Registry::GroupItem<Traits> &Registry();
 
       ImporterItem( const Identifier &id, std::unique_ptr<ImportPlugin> pPlugin );
       ~ImporterItem();

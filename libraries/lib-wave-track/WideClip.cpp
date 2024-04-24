@@ -56,3 +56,31 @@ double WideClip::GetStretchRatio() const
 {
    return mChannels[0u]->GetStretchRatio();
 }
+
+int WideClip::GetCentShift() const
+{
+   return mChannels[0u]->GetCentShift();
+}
+
+PitchAndSpeedPreset WideClip::GetPitchAndSpeedPreset() const
+{
+   return mChannels[0u]->GetPitchAndSpeedPreset();
+}
+
+Observer::Subscription
+WideClip::SubscribeToCentShiftChange(std::function<void(int)> cb)
+{
+   // On purpose set the publisher on the left channel only. This is not a clip
+   // property that is saved to disk, and else we'll get two callbacks for the
+   // same event.
+   return mChannels[0u]->SubscribeToCentShiftChange(std::move(cb));
+}
+
+Observer::Subscription
+WideClip::SubscribeToPitchAndSpeedPresetChange(std::function<void(PitchAndSpeedPreset)> cb)
+{
+   // On purpose set the publisher on the left channel only. This is not a clip
+   // property that is saved to disk, and else we'll get two callbacks for the
+   // same event.
+   return mChannels[0u]->SubscribeToPitchAndSpeedPresetChange(std::move(cb));
+}

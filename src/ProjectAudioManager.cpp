@@ -19,9 +19,9 @@ Paul Licameli split from ProjectManager.cpp
 
 #include "AudioIO.h"
 #include "BasicUI.h"
+#include "CommandManager.h"
 #include "CommonCommandFlags.h"
 #include "DefaultPlaybackPolicy.h"
-#include "Menus.h"
 #include "Meter.h"
 #include "Mix.h"
 #include "Project.h"
@@ -29,17 +29,17 @@ Paul Licameli split from ProjectManager.cpp
 #include "ProjectFileIO.h"
 #include "ProjectHistory.h"
 #include "ProjectRate.h"
-#include "ProjectSettings.h"
 #include "ProjectStatus.h"
 #include "ProjectWindows.h"
 #include "ScrubState.h"
-#include "TrackPanelAx.h"
+#include "TrackFocus.h"
+#include "prefs/TracksPrefs.h"
 #include "TransportUtilities.h"
 #include "UndoManager.h"
 #include "ViewInfo.h"
+#include "Viewport.h"
 #include "WaveClip.h"
 #include "WaveTrack.h"
-#include "toolbars/ToolManager.h"
 #include "tracks/ui/Scrubbing.h"
 #include "tracks/ui/ChannelView.h"
 #include "widgets/MeterPanelBase.h"
@@ -70,7 +70,7 @@ ProjectAudioManager::ProjectAudioManager( AudacityProject &project )
 {
    static ProjectStatus::RegisteredStatusWidthFunction
       registerStatusWidthFunction{ StatusWidthFunction };
-   mCheckpointFailureSubcription = ProjectFileIO::Get(project)
+   mCheckpointFailureSubscription = ProjectFileIO::Get(project)
       .Subscribe(*this, &ProjectAudioManager::OnCheckpointFailure);
 }
 
@@ -90,7 +90,7 @@ auto ProjectAudioManager::StatusWidthFunction(
    const AudacityProject &project, StatusBarField field )
    -> ProjectStatus::StatusWidthResult
 {
-   if ( field == rateStatusBarField ) {
+   if ( field == RateStatusBarField() ) {
       auto &audioManager = ProjectAudioManager::Get( project );
       int rate = audioManager.mDisplayedRate;
       return {
@@ -554,11 +554,6 @@ void ProjectAudioManager::Stop(bool stopStream /* = true*/)
          meter->Clear();
       }
    }
-
-   // To do: eliminate this, use an event instead
-   const auto toolbar = ToolManager::Get( *project ).GetToolBar(wxT("Scrub"));
-   if (toolbar)
-      toolbar->EnableDisableButtons();
 }
 
 
@@ -677,10 +672,12 @@ void ProjectAudioManager::OnRecord(bool altAppearance)
          // Try to find wave tracks to record into.  (If any are selected,
          // try to choose only from them; else if wave tracks exist, may record into any.)
          existingTracks = ChooseExistingRecordingTracks(*p, true, rateOfSelected);
-         if (!existingTracks.empty())
+         if (!existingTracks.empty()) {
             t0 = std::max(t0,
                TrackList::Get(*p).Selected<const WaveTrack>()
-                  .max(&Track::GetEndTime));
+               .max(&Track::GetEndTime));
+            options.rate = rateOfSelected;
+         }
          else {
             if (anySelected && rateOfSelected != options.rate) {
                AudacityMessageBox(XO(
@@ -745,9 +742,6 @@ void ProjectAudioManager::OnRecord(bool altAppearance)
       std::copy(existingTracks.begin(), existingTracks.end(),
          back_inserter(transportTracks.captureSequences));
 
-      if (rateOfSelected != RATE_NOT_SELECTED)
-         options.rate = rateOfSelected;
-
       DoRecord(*p, transportTracks, t0, t1, altAppearance, options);
    }
 }
@@ -755,13 +749,7 @@ void ProjectAudioManager::OnRecord(bool altAppearance)
 bool ProjectAudioManager::UseDuplex()
 {
    bool duplex;
-   gPrefs->Read(wxT("/AudioIO/Duplex"), &duplex,
-#ifdef EXPERIMENTAL_DA
-      false
-#else
-      true
-#endif
-      );
+   gPrefs->Read(wxT("/AudioIO/Duplex"), &duplex, true);
    return duplex;
 }
 
@@ -776,7 +764,7 @@ bool ProjectAudioManager::DoRecord(AudacityProject &project,
    CommandFlag flags = AlwaysEnabledFlag; // 0 means recalc flags.
 
    // NB: The call may have the side effect of changing flags.
-   bool allowed = MenuManager::Get(project).TryToMakeActionAllowed(
+   bool allowed = CommandManager::Get(project).TryToMakeActionAllowed(
       flags,
       AudioIONotBusyFlag() | CanStopAudioStreamFlag());
 
@@ -877,7 +865,7 @@ bool ProjectAudioManager::DoRecord(AudacityProject &project,
                !recordingStartsBeforeTrackEnd ||
                lastClip->WithinPlayRegion(recordingStart));
             if (!recordingStartsBeforeTrackEnd ||
-               !lastClip->StretchRatioEquals(1))
+               lastClip->HasPitchOrSpeed())
                pending->CreateWideClip(t0, makeNewClipName(pending));
             transportSequences.captureSequences
                .push_back(pending->SharedPointer<WaveTrack>());
@@ -907,8 +895,8 @@ bool ProjectAudioManager::DoRecord(AudacityProject &project,
          auto newTracks = WaveTrackFactory::Get(*p).Create(recordingChannels);
          const auto first = *newTracks->begin();
          int trackCounter = 0;
-         const auto minimizeChannelView = recordingChannels > 2 &&
-            !ProjectSettings::Get(*p).GetTracksFitVerticallyZoomed();
+         const auto minimizeChannelView = recordingChannels > 2
+            && !TracksPrefs::TracksFitVerticallyZoomed.Read();
          for (auto newTrack : newTracks->Any<WaveTrack>()) {
             // Quantize bounds to the rate of the new track.
             if (newTrack == first) {
@@ -955,7 +943,7 @@ bool ProjectAudioManager::DoRecord(AudacityProject &project,
             transportSequences.captureSequences.push_back(
                std::static_pointer_cast<WaveTrack>(newTrack->shared_from_this())
             );
-               
+
             for(auto channel : newTrack->Channels())
             {
                ChannelView::Get(*channel).SetMinimized(minimizeChannelView);
@@ -965,7 +953,7 @@ bool ProjectAudioManager::DoRecord(AudacityProject &project,
          // Bug 1548.  First of new tracks needs the focus.
          TrackFocus::Get(project).Set(first);
          if (!trackList.empty())
-            (*trackList.rbegin())->EnsureVisible();
+            Viewport::Get(project).ShowTrack(**trackList.rbegin());
       }
 
       //Automated Input Level Adjustment Initialization
@@ -1068,7 +1056,7 @@ void ProjectAudioManager::OnAudioIORate(int rate)
 
    auto display = FormatRate( rate );
 
-   ProjectStatus::Get( project ).Set( display, rateStatusBarField );
+   ProjectStatus::Get( project ).Set( display, RateStatusBarField() );
 }
 
 void ProjectAudioManager::OnAudioIOStartRecording()
@@ -1212,7 +1200,7 @@ static ProjectAudioIO::DefaultOptions::Scope sScope {
             -> std::unique_ptr<PlaybackPolicy>
       {
          return std::make_unique<DefaultPlaybackPolicy>( project,
-            trackEndTime, loopEndTime,
+            trackEndTime, loopEndTime, options.pStartTime,
             options.loopEnabled, options.variableSpeed);
       };
 
@@ -1317,9 +1305,9 @@ static RegisteredMenuItemEnabler stopIfPaused{{
    []{ return PausedFlag(); },
    []{ return AudioIONotBusyFlag(); },
    []( const AudacityProject &project ){
-      return MenuManager::Get( project ).mStopIfWasPaused; },
+      return CommandManager::Get( project ).mStopIfWasPaused; },
    []( AudacityProject &project, CommandFlag ){
-      if ( MenuManager::Get( project ).mStopIfWasPaused )
+      if ( CommandManager::Get( project ).mStopIfWasPaused )
          ProjectAudioManager::Get( project ).StopIfPaused();
    }
 }};

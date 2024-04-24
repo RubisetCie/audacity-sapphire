@@ -17,8 +17,8 @@ Paul Licameli split from WaveChannelView.cpp
 #include "Sequence.h"
 #include "Spectrum.h"
 
+#include "ClipParameters.h"
 #include "SpectrumVRulerControls.h"
-#include "WaveChannelView.h"
 #include "WaveChannelViewConstants.h"
 
 #include "../../../ui/BrushHandle.h"
@@ -33,7 +33,6 @@ Paul Licameli split from WaveChannelView.cpp
 #include "WaveClip.h"
 #include "WaveTrack.h"
 #include "../../../../prefs/SpectrogramSettings.h"
-#include "../../../../ProjectSettings.h"
 #include "WaveTrackLocation.h"
 
 #include <wx/dcmemory.h>
@@ -137,10 +136,8 @@ static UIHandlePtr BrushHandleHitTest(
    result = AssignUIHandlePtr(holder, result);
 
    //Make sure we are within the selected track
-   // Adjusting the selection edges can be turned off in
-   // the preferences...
    auto pTrack = pChannelView->FindTrack();
-   if (!pTrack->GetSelected() || !viewInfo.bAdjustSelectionEdges)
+   if (!pTrack->GetSelected())
    {
       return result;
    }
@@ -859,7 +856,8 @@ void DrawClipSpectrum(TrackPanelDrawingContext &context, const WaveTrack &track,
 }
 
 void SpectrumView::DoDraw(TrackPanelDrawingContext& context, size_t channel,
-   const WaveTrack &track, const WaveClip* selectedClip, const wxRect & rect)
+   const WaveTrack &track, const WaveTrack::Interval* selectedClip,
+   const wxRect & rect)
 {
    const auto artist = TrackArtist::Get( context );
    const auto &blankSelectedBrush = artist->blankSelectedBrush;
@@ -876,10 +874,14 @@ void SpectrumView::DoDraw(TrackPanelDrawingContext& context, size_t channel,
    auto pLeader = *track.GetHolder()->Find(&track);
    assert(pLeader->IsLeader());
 
-   for (const auto pInterval :
-      static_cast<const WaveTrack*>(pLeader)->GetChannel(channel)->Intervals())
+   for (const auto pInterval : static_cast<const WaveTrack*>(pLeader)
+      ->GetChannel(channel)->Intervals()
+   ) {
+      bool selected = selectedClip &&
+         WaveChannelView::WideClipContains(*selectedClip, pInterval->GetClip());
       DrawClipSpectrum(context, track, *pInterval, rect, mpSpectralData,
-         &pInterval->GetClip() == selectedClip);
+         selected);
+   }
 
    DrawBoldBoundaries(context, track, rect);
 }
@@ -889,7 +891,7 @@ void SpectrumView::Draw(
 {
    if ( iPass == TrackArtist::PassTracks ) {
       auto &dc = context.dc;
- 
+
       const auto wt = std::static_pointer_cast<const WaveTrack>(
          FindTrack()->SubstitutePendingChangedTrack());
 
@@ -903,7 +905,7 @@ void SpectrumView::Draw(
       auto waveChannelView = GetWaveChannelView().lock();
       wxASSERT(waveChannelView.use_count());
 
-      auto selectedClip = waveChannelView->GetSelectedClip().lock();
+      auto selectedClip = waveChannelView->GetSelectedClip();
       DoDraw(context, GetChannelIndex(), *wt, selectedClip.get(), rect);
 
 #if defined(__WXMAC__)
@@ -924,7 +926,7 @@ static const WaveChannelSubViews::RegisteredFactory key{
 // source file with the rest of the spectrum view implementation.
 #include "WaveTrackControls.h"
 #include "AudioIOBase.h"
-#include "../../../../Menus.h"
+#include "../../../../MenuCreator.h"
 #include "ProjectHistory.h"
 #include "../../../../RefreshCode.h"
 #include "../../../../prefs/PrefsDialog.h"
@@ -1096,7 +1098,7 @@ unsigned SpectrumView::Char(
 #include "../../../../CommonCommandFlags.h"
 #include "Project.h"
 #include "../../../../SpectrumAnalyst.h"
-#include "../../../../commands/CommandContext.h"
+#include "CommandContext.h"
 
 namespace {
 void DoNextPeakFrequency(AudacityProject &project, bool up)
@@ -1178,12 +1180,12 @@ static CommandHandlerObject &findCommandHandler(AudacityProject &project) {
    return project.AttachedObjects::Get< Handler >( key );
 };
 
-using namespace MenuTable;
+using namespace MenuRegistry;
 #define FN(X) (& Handler :: X)
 
-BaseItemSharedPtr SpectralSelectionMenu()
+auto SpectralSelectionMenu()
 {
-   static BaseItemSharedPtr menu{
+   static auto menu = std::shared_ptr{
    ( FinderScope{ findCommandHandler },
    Menu( wxT("Spectral"), XXO("S&pectral"),
       Command( wxT("ToggleSpectralSelection"),
@@ -1201,9 +1203,8 @@ BaseItemSharedPtr SpectralSelectionMenu()
 
 #undef FN
 
-AttachedItem sAttachment2{
-   Placement{ wxT("Select/Basic"), { OrderingHint::After, wxT("Region") } },
-   Indirect(SpectralSelectionMenu())
+AttachedItem sAttachment2{ Indirect(SpectralSelectionMenu()),
+   Placement{ wxT("Select/Basic"), { OrderingHint::After, wxT("Region") } }
 };
 
 }

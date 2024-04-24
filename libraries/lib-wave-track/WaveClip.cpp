@@ -56,7 +56,9 @@ WaveClip::WaveClip(size_t width,
 WaveClip::WaveClip(
    const WaveClip& orig, const SampleBlockFactoryPtr& factory,
    bool copyCutlines)
-    : mClipStretchRatio { orig.mClipStretchRatio }
+    : mCentShift { orig.mCentShift }
+    , mPitchAndSpeedPreset { orig.mPitchAndSpeedPreset }
+    , mClipStretchRatio { orig.mClipStretchRatio }
     , mRawAudioTempo { orig.mRawAudioTempo }
     , mProjectTempo { orig.mProjectTempo }
 {
@@ -91,7 +93,8 @@ WaveClip::WaveClip(
 WaveClip::WaveClip(
    const WaveClip& orig, const SampleBlockFactoryPtr& factory,
    bool copyCutlines, double t0, double t1)
-    : mClipStretchRatio { orig.mClipStretchRatio }
+    : mCentShift { orig.mCentShift }
+    , mClipStretchRatio { orig.mClipStretchRatio }
     , mRawAudioTempo { orig.mRawAudioTempo }
     , mProjectTempo { orig.mProjectTempo }
 {
@@ -140,6 +143,7 @@ WaveClip::WaveClip(
 
 WaveClip::~WaveClip()
 {
+   Observer::Publisher<WaveClipDtorCalled>::Publish(WaveClipDtorCalled {});
 }
 
 AudioSegmentSampleView WaveClip::GetSampleView(
@@ -289,6 +293,8 @@ void WaveClip::OnProjectTempoChange(
       mEnvelope->RescaleTimesBy(ratioChange);
    }
    mProjectTempo = newTempo;
+   Observer::Publisher<StretchRatioChange>::Publish(
+      StretchRatioChange { GetStretchRatio() });
 }
 
 void WaveClip::StretchLeftTo(double to)
@@ -306,6 +312,8 @@ void WaveClip::StretchLeftTo(double to)
    mEnvelope->SetOffset(mSequenceOffset);
    mEnvelope->RescaleTimesBy(ratioChange);
    StretchCutLines(ratioChange);
+   Observer::Publisher<StretchRatioChange>::Publish(
+      StretchRatioChange { GetStretchRatio() });
 }
 
 void WaveClip::StretchRightTo(double to)
@@ -316,13 +324,21 @@ void WaveClip::StretchRightTo(double to)
    const auto oldPlayDuration = GetPlayEndTime() - pst;
    const auto newPlayDuration = to - pst;
    const auto ratioChange = newPlayDuration / oldPlayDuration;
-   mSequenceOffset = pst - mTrimLeft * ratioChange;
-   mTrimLeft *= ratioChange;
-   mTrimRight *= ratioChange;
-   mClipStretchRatio *= ratioChange;
+   StretchBy(ratioChange);
+}
+
+void WaveClip::StretchBy(double ratio)
+{
+   const auto pst = GetPlayStartTime();
+   mSequenceOffset = pst - mTrimLeft * ratio;
+   mTrimLeft *= ratio;
+   mTrimRight *= ratio;
+   mClipStretchRatio *= ratio;
    mEnvelope->SetOffset(mSequenceOffset);
-   mEnvelope->RescaleTimesBy(ratioChange);
-   StretchCutLines(ratioChange);
+   mEnvelope->RescaleTimesBy(ratio);
+   StretchCutLines(ratio);
+   Observer::Publisher<StretchRatioChange>::Publish(
+      StretchRatioChange { GetStretchRatio() });
 }
 
 void WaveClip::StretchCutLines(double ratioChange)
@@ -346,9 +362,36 @@ double WaveClip::GetStretchRatio() const
    return mClipStretchRatio * dstSrcRatio;
 }
 
-bool WaveClip::HasEqualStretchRatio(const WaveClip& other) const
+int WaveClip::GetCentShift() const
 {
-   return StretchRatioEquals(other.GetStretchRatio());
+   return mCentShift;
+}
+
+Observer::Subscription
+WaveClip::SubscribeToCentShiftChange(std::function<void(int)> cb)
+{
+   return Observer::Publisher<CentShiftChange>::Subscribe(
+      [cb](const CentShiftChange& cents) { cb(cents.newValue); });
+}
+
+Observer::Subscription WaveClip::SubscribeToPitchAndSpeedPresetChange(
+   std::function<void(PitchAndSpeedPreset)> cb)
+{
+   return Observer::Publisher<PitchAndSpeedPresetChange>::Subscribe(
+      [cb](const PitchAndSpeedPresetChange& formant) {
+         cb(formant.newValue);
+      });
+}
+
+bool WaveClip::HasEqualPitchAndSpeed(const WaveClip& other) const
+{
+   return StretchRatioEquals(other.GetStretchRatio()) &&
+          GetCentShift() == other.GetCentShift();
+}
+
+bool WaveClip::HasPitchOrSpeed() const
+{
+   return !StretchRatioEquals(1.0) || GetCentShift() != 0;
 }
 
 bool WaveClip::StretchRatioEquals(double value) const
@@ -492,7 +535,8 @@ bool WaveClip::Append(constSamplePtr buffers[], sampleFormat format,
 {
    Finally Do{ [this]{ assert(CheckInvariants()); } };
 
-   Transaction transaction{ *this };
+   // There is not a transaction to enforce consistency of lengths of sequences
+   // (And there is as yet always just one sequence).
 
    //wxLogDebug(wxT("Append: len=%lli"), (long long) len);
 
@@ -503,7 +547,6 @@ bool WaveClip::Append(constSamplePtr buffers[], sampleFormat format,
          pSequence->Append(buffers[ii++], format, len, stride, effectiveFormat)
          || appended;
 
-   transaction.Commit();
    // use No-fail-guarantee
    UpdateEnvelopeTrackLen();
    MarkChanged();
@@ -562,6 +605,18 @@ bool WaveClip::HandleXMLTag(const std::string_view& tag, const AttributesList &a
             if (!value.TryGet(dblValue))
                return false;
             SetTrimRight(dblValue);
+         }
+         else if (attr == "centShift")
+         {
+            if (!value.TryGet(dblValue))
+               return false;
+            mCentShift = dblValue;
+         }
+         else if (attr == "pitchAndSpeedPreset")
+         {
+            if (!value.TryGet(longValue))
+               return false;
+            mPitchAndSpeedPreset = static_cast<PitchAndSpeedPreset>(longValue);
          }
          else if (attr == "rawAudioTempo")
          {
@@ -651,6 +706,9 @@ void WaveClip::WriteXML(XMLWriter &xmlFile) const
    xmlFile.WriteAttr(wxT("offset"), mSequenceOffset, 8);
    xmlFile.WriteAttr(wxT("trimLeft"), mTrimLeft, 8);
    xmlFile.WriteAttr(wxT("trimRight"), mTrimRight, 8);
+   xmlFile.WriteAttr(wxT("centShift"), mCentShift);
+   xmlFile.WriteAttr(
+      wxT("pitchAndSpeedPreset"), static_cast<long>(mPitchAndSpeedPreset));
    xmlFile.WriteAttr(wxT("rawAudioTempo"), mRawAudioTempo.value_or(0.), 8);
    xmlFile.WriteAttr(wxT("clipStretchRatio"), mClipStretchRatio, 8);
    xmlFile.WriteAttr(wxT("name"), mName);
@@ -1101,6 +1159,34 @@ void WaveClip::SetRate(int rate)
    SetSequenceStartTime(GetSequenceStartTime() * ratio);
 }
 
+void WaveClip::SetRawAudioTempo(double tempo)
+{
+   mRawAudioTempo = tempo;
+}
+
+bool WaveClip::SetCentShift(int cents)
+{
+   if (
+      cents < TimeAndPitchInterface::MinCents ||
+      cents > TimeAndPitchInterface::MaxCents)
+      return false;
+   mCentShift = cents;
+   Observer::Publisher<CentShiftChange>::Publish(CentShiftChange { cents });
+   return true;
+}
+
+void WaveClip::SetPitchAndSpeedPreset(PitchAndSpeedPreset preset)
+{
+   mPitchAndSpeedPreset = preset;
+   Observer::Publisher<PitchAndSpeedPresetChange>::Publish(
+      PitchAndSpeedPresetChange { mPitchAndSpeedPreset });
+}
+
+PitchAndSpeedPreset WaveClip::GetPitchAndSpeedPreset() const
+{
+   return mPitchAndSpeedPreset;
+}
+
 /*! @excsafety{Strong} */
 void WaveClip::Resample(int rate, BasicUI::ProgressDialog *progress)
 {
@@ -1332,6 +1418,25 @@ void WaveClip::TrimRight(double deltaTime)
    SetTrimRight(mTrimRight + deltaTime);
 }
 
+void WaveClip::TrimQuarternotesFromRight(double quarters)
+{
+   assert(mRawAudioTempo.has_value());
+   if (!mRawAudioTempo.has_value())
+      return;
+   const auto secondsPerQuarter = 60 * GetStretchRatio() / *mRawAudioTempo;
+   // MH https://github.com/audacity/audacity/issues/5878: Clip boundaries are
+   // quantized to the sample period. Music durations aren't, though.
+   // `quarters` was probably chosen such that the clip ends exactly at some
+   // musical grid snapping point. However, if we right-trim by `quarters`,
+   // the clip's play end time might be rounded up to the next sample period,
+   // overlapping the next snapping point on the musical grid. We don't want
+   // this, or it would disturb music producers who want to horizontally
+   // duplicate loops.
+   const auto quantizedTrim =
+      std::ceil(quarters * secondsPerQuarter * GetRate()) / GetRate();
+   TrimRight(quantizedTrim);
+}
+
 void WaveClip::TrimLeftTo(double to)
 {
    mTrimLeft =
@@ -1461,14 +1566,10 @@ bool WaveClip::CheckInvariants() const
       // All pointers mut be non-null
       auto &pFirst = *iter++;
       if (pFirst) {
-         // All sequences must have the same lengths, append buffer lengths,
-         // sample formats, and sample block factory
+         // All sequences must have the sample formats, and sample block factory
          return
          std::all_of(iter, end, [&](decltype(pFirst) pSequence) {
             return pSequence &&
-               pSequence->GetNumSamples() == pFirst->GetNumSamples() &&
-               pSequence->GetAppendBufferLen() == pFirst->GetAppendBufferLen()
-                  &&
                pSequence->GetSampleFormats() == pFirst->GetSampleFormats() &&
                pSequence->GetFactory() == pFirst->GetFactory();
          }) &&

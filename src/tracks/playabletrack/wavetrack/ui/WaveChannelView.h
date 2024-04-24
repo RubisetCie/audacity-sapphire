@@ -14,17 +14,15 @@ Paul Licameli split from class WaveTrack
 #include "../../../ui/CommonChannelView.h"
 #include "ClientData.h"
 #include "SampleCount.h"
+#include "WaveTrack.h"
 namespace WaveChannelViewConstants{ enum Display : int; }
 struct WaveChannelSubViewType;
 
 class ClipTimes;
 class CutlineHandle;
 class TranslatableString;
-class SampleTrack;
 class WaveChannel;
-class WaveTrack;
 class WaveChannelView;
-class WaveClip;
 class WaveClipAdjustBorderHandle;
 class ZoomInfo;
 
@@ -157,8 +155,9 @@ public:
    bool GetMultiView() const { return DoGetMultiView(); }
    void SetMultiView( bool value ) { DoGetMultiView() = value; }
 
-
-   std::weak_ptr<WaveClip> GetSelectedClip();
+   WaveTrack::IntervalHolder GetSelectedClip();
+   static bool WideClipContains(
+      const WaveTrack::Interval &wideClip, const WaveClip &clip);
 
    // Returns a visible subset of subviews, sorted in the same
    // order as they are supposed to be displayed
@@ -238,39 +237,4 @@ private:
 
    std::weak_ptr<WaveTrackAffordanceHandle> mAffordanceHandle;
 };
-
-// Helper for drawing routines
-class SelectedRegion;
-class WaveClip;
-class ZoomInfo;
-
-struct AUDACITY_DLL_API ClipParameters
-{
-   // Do a bunch of calculations common to waveform and spectrum drawing.
-   ClipParameters(
-      const ClipTimes &clip, const wxRect& rect, const ZoomInfo& zoomInfo);
-
-   const double trackRectT0; // absolute time of left edge of track
-
-   // Lower and upper visible time boundaries (relative to clip). If completely
-   // off-screen, `t0 == t1`.
-   double t0;
-   double t1;
-
-   const double averagePixelsPerSecond;
-   const bool showIndividualSamples;
-
-   wxRect hiddenMid;
-   int hiddenLeftOffset;
-
-   wxRect mid;
-   int leftOffset;
-
-   // returns a clip rectangle restricted by viewRect,
-   // and with clipOffsetX - clip horizontal origin offset within view rect
-   static wxRect GetClipRect(
-      const ClipTimes& clip, const ZoomInfo& zoomInfo,
-      const wxRect& viewRect, bool* outShowSamples = nullptr);
-};
-
 #endif

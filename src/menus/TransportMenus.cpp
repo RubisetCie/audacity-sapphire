@@ -2,18 +2,15 @@
 #include "../CommonCommandFlags.h"
 #include "DeviceManager.h"
 #include "../LabelTrack.h"
-#include "../Menus.h"
 #include "Prefs.h"
 #include "Project.h"
 #include "ProjectAudioIO.h"
 #include "../ProjectAudioManager.h"
 #include "ProjectHistory.h"
-#include "../ProjectSettings.h"
 #include "../ProjectWindows.h"
-#include "../ProjectWindow.h"
 #include "../SelectUtilities.h"
 #include "../SoundActivatedRecord.h"
-#include "../TrackPanelAx.h"
+#include "TrackFocus.h"
 #include "../TrackPanel.h"
 #include "../TransportUtilities.h"
 #include "UndoManager.h"
@@ -21,8 +18,8 @@
 #include "../prefs/TracksPrefs.h"
 #include "WaveTrack.h"
 #include "ViewInfo.h"
-#include "../commands/CommandContext.h"
-#include "../commands/CommandManager.h"
+#include "Viewport.h"
+#include "CommandContext.h"
 #include "../toolbars/ControlToolBar.h"
 #include "../toolbars/ToolManager.h"
 #include "AudacityMessageBox.h"
@@ -74,7 +71,7 @@ void DoMoveToLabel(AudacityProject &project, bool next)
 {
    auto &tracks = TrackList::Get( project );
    auto &trackFocus = TrackFocus::Get( project );
-   auto &window = ProjectWindow::Get( project );
+   auto &viewport = Viewport::Get(project);
    auto &projectAudioManager = ProjectAudioManager::Get(project);
 
    // Find the number of label tracks, and ptr to last track found
@@ -110,13 +107,13 @@ void DoMoveToLabel(AudacityProject &project, bool next)
          if (ProjectAudioIO::Get( project ).IsAudioActive()) {
             TransportUtilities::DoStopPlaying(project);
             selectedRegion = label->selectedRegion;
-            window.RedrawProject();
+            viewport.Redraw();
             TransportUtilities::DoStartPlaying(project, newDefault);
          }
          else {
             selectedRegion = label->selectedRegion;
-            window.ScrollIntoView(selectedRegion.t0());
-            window.RedrawProject();
+            viewport.ScrollIntoView(selectedRegion.t0());
+            viewport.Redraw();
          }
          /* i18n-hint:
             String is replaced by the name of a label,
@@ -427,11 +424,7 @@ void OnToggleSoundActivated(const CommandContext &WXUNUSED(context) )
 void OnTogglePlayRecording(const CommandContext &WXUNUSED(context) )
 {
    bool Duplex;
-#ifdef EXPERIMENTAL_DA
-   gPrefs->Read(wxT("/AudioIO/Duplex"), &Duplex, false);
-#else
    gPrefs->Read(wxT("/AudioIO/Duplex"), &Duplex, true);
-#endif
    gPrefs->Write(wxT("/AudioIO/Duplex"), !Duplex);
    gPrefs->Flush();
    ToolManager::ModifyAllProjectToolbarMenus();
@@ -733,14 +726,12 @@ void OnStopSelect(const CommandContext &context)
 // Menu definitions
 
 // Under /MenuBar
-using namespace MenuTable;
-BaseItemSharedPtr TransportMenu()
+using namespace MenuRegistry;
+auto TransportMenu()
 {
-   using Options = CommandManager::Options;
-
-   static const auto CanStopFlags = AudioIONotBusyFlag() | CanStopAudioStreamFlag();
-
-   static BaseItemSharedPtr menu{
+   static const auto CanStopFlags =
+      AudioIONotBusyFlag() | CanStopAudioStreamFlag();
+   static auto menu = std::shared_ptr{
    /* i18n-hint: 'Transport' is the name given to the set of controls that
       play, record, pause etc. */
    Menu( wxT("Transport"), XXO("Tra&nsport"),
@@ -836,13 +827,7 @@ BaseItemSharedPtr TransportMenu()
                Command( wxT("Overdub"), XXO("Hear &other tracks during recording"),
                   OnTogglePlayRecording,
                   AudioIONotBusyFlag() | CanStopAudioStreamFlag(),
-                  Options{}.CheckTest( wxT("/AudioIO/Duplex"),
-#ifdef EXPERIMENTAL_DA
-                     false
-#else
-                     true
-#endif
-                  ) ),
+                  Options{}.CheckTest( wxT("/AudioIO/Duplex"), true) ),
                Command( wxT("SWPlaythrough"), XXO("Enable audible input &monitoring"),
                   OnToggleSWPlaythrough,
                   AudioIONotBusyFlag() | CanStopAudioStreamFlag(),
@@ -865,14 +850,11 @@ BaseItemSharedPtr TransportMenu()
    return menu;
 }
 
-AttachedItem sAttachment1{
-   wxT(""),
-   Indirect(TransportMenu())
-};
+AttachedItem sAttachment1{ Indirect(TransportMenu()) };
 
-BaseItemSharedPtr ExtraTransportMenu()
+auto ExtraTransportMenu()
 {
-   static BaseItemSharedPtr menu{
+   static auto menu = std::shared_ptr{
    Menu( wxT("Transport"), XXO("T&ransport"),
       // PlayStop is already in the menus.
       /* i18n-hint: (verb) Start playing audio*/
@@ -913,15 +895,13 @@ BaseItemSharedPtr ExtraTransportMenu()
    return menu;
 }
 
-AttachedItem sAttachment2{
-   wxT("Optional/Extra/Part1"),
-   Indirect(ExtraTransportMenu())
+AttachedItem sAttachment2{ Indirect(ExtraTransportMenu()),
+   wxT("Optional/Extra/Part1")
 };
 
-BaseItemSharedPtr ExtraSelectionItems()
+auto ExtraSelectionItems()
 {
-   using Options = CommandManager::Options;
-   static BaseItemSharedPtr items{
+   static auto items = std::shared_ptr{
    Items(wxT("MoveToLabel"),
       Command(wxT("MoveToPrevLabel"), XXO("Move to Pre&vious Label"),
          OnMoveToPrevLabel,
@@ -933,9 +913,8 @@ BaseItemSharedPtr ExtraSelectionItems()
    return items;
 }
 
-AttachedItem sAttachment4{
-  { wxT("Optional/Extra/Part1/Select"), { OrderingHint::End, {} } },
-   Indirect(ExtraSelectionItems())
+AttachedItem sAttachment4{ Indirect(ExtraSelectionItems()),
+  { wxT("Optional/Extra/Part1/Select"), { OrderingHint::End, {} } }
 };
 
 }

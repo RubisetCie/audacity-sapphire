@@ -16,23 +16,22 @@ class wxBrush;
 class wxDC;
 class wxRect;
 class wxString;
+#include <wx/types.h>
 
 namespace TrackArt {
 
    static constexpr int ClipFrameRadius{ 6 };
 
    //Draws clip affordance and title string, if not empty.
-   //Returns clip's title rectangle
+   //Returns affordance's rectangle.
    AUDACITY_DLL_API
-   wxRect DrawClipAffordance(wxDC& dc, const wxRect& affordanceRect, bool highlight = false, bool selected = false);
+   wxRect DrawClipAffordance(
+      wxDC& dc, const wxRect& clipRect, bool highlight = false,
+      bool selected = false);
 
    AUDACITY_DLL_API
-   bool DrawClipTitle(wxDC& dc, const wxRect& titleRect, const wxString& title);
-
-   AUDACITY_DLL_API
-   bool DrawAudioClipTitle(
-      wxDC& dc, const wxRect& titleRect, const wxString& title,
-      double clipStretchRatio);
+   bool
+   DrawClipTitle(wxDC& dc, const wxRect& affordanceRect, const wxString& title);
 
    AUDACITY_DLL_API
    void DrawClipEdges(wxDC& dc, const wxRect& clipRect, bool selected = false);
@@ -64,6 +63,9 @@ namespace TrackArt {
 
    AUDACITY_DLL_API
    wxString TruncateText(wxDC& dc, const wxString& text, const int maxWidth);
+
+   AUDACITY_DLL_API
+   void DrawSnapLines(wxDC *dc, wxInt64 snap0, wxInt64 snap1);
 }
 
 extern AUDACITY_DLL_API int GetWaveYPos(float value, float min, float max,

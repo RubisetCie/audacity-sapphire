@@ -1,10 +1,8 @@
 #include "../CommonCommandFlags.h"
-#include "../Menus.h"
 #include "Prefs.h"
 #include "Project.h"
 #include "ProjectWindows.h"
-#include "../commands/CommandContext.h"
-#include "../commands/CommandManager.h"
+#include "CommandContext.h"
 #include "../toolbars/ToolManager.h"
 
 #include <wx/frame.h>
@@ -27,9 +25,9 @@ void OnFullScreen(const CommandContext &context)
 
 // Menu definitions
 
-using namespace MenuTable;
+using namespace MenuRegistry;
 
-BaseItemSharedPtr ExtraMenu()
+auto ExtraMenu()
 {
    static const auto pred =
       []{ return gPrefs->ReadBool(wxT("/GUI/ShowExtraMenus"), false); };
@@ -43,21 +41,16 @@ BaseItemSharedPtr ExtraMenu()
    return menu;
 }
 
-AttachedItem sAttachment1{
-   wxT(""),
-   Indirect(ExtraMenu())
-};
+AttachedItem sAttachment1{ Indirect(ExtraMenu()) };
 
 // Under /MenuBar/Optional/Extra/Part2
-BaseItemSharedPtr ExtraMiscItems()
+auto ExtraMiscItems()
 {
-   using Options = CommandManager::Options;
-
    // Not a menu.
-   static BaseItemSharedPtr items{
+   static auto items = std::shared_ptr{
    Items( wxT("Misc"),
       // Delayed evaluation
-      []( AudacityProject &project ) {
+      [](AudacityProject &) {
 
    static const auto key =
 #ifdef __WXMAC__
@@ -81,9 +74,8 @@ BaseItemSharedPtr ExtraMiscItems()
    return items;
 }
 
-AttachedItem sAttachment2{
-   Placement{ wxT("Optional/Extra/Part2"), { OrderingHint::End } },
-   Indirect(ExtraMiscItems())
+AttachedItem sAttachment2{ Indirect(ExtraMiscItems()),
+   Placement{ wxT("Optional/Extra/Part2"), { OrderingHint::End } }
 };
 
 }

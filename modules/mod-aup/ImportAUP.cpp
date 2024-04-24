@@ -32,9 +32,8 @@
 #include "Project.h"
 #include "ProjectFileManager.h"
 #include "ProjectHistory.h"
+#include "ProjectNumericFormats.h"
 #include "ProjectRate.h"
-#include "ProjectSelectionManager.h"
-#include "ProjectSettings.h"
 #include "ProjectSnap.h"
 #include "ProjectWindows.h"
 #include "Sequence.h"
@@ -43,7 +42,6 @@
 #include "ViewInfo.h"
 #include "WaveClip.h"
 #include "WaveTrack.h"
-#include "toolbars/SelectionBar.h"
 #include "widgets/NumericTextCtrl.h"
 #include "XMLFileReader.h"
 #include "wxFileNameWrapper.h"
@@ -89,15 +87,15 @@ public:
    ~AUPImportFileHandle();
 
    TranslatableString GetErrorMessage() const override;
-   
+
    TranslatableString GetFileDescription() override;
 
    ByteCount GetFileUncompressedBytes() override;
 
-   void Import(ImportProgressListener& progressListener,
-               WaveTrackFactory *trackFactory,
-               TrackHolders &outTracks,
-               Tags *tags) override;
+   void Import(
+      ImportProgressListener& progressListener, WaveTrackFactory* trackFactory,
+      TrackHolders& outTracks, Tags* tags,
+      std::optional<LibFileFormats::AcidizerTags>& outAcidTags) override;
 
    wxInt32 GetStreamCount() override;
 
@@ -306,19 +304,18 @@ auto AUPImportFileHandle::GetFileUncompressedBytes() -> ByteCount
    return 0;
 }
 
-void AUPImportFileHandle::Import(ImportProgressListener& progressListener,
-                                 WaveTrackFactory*,
-                                 TrackHolders&,
-                                 Tags *tags)
+void AUPImportFileHandle::Import(
+   ImportProgressListener& progressListener, WaveTrackFactory*, TrackHolders&,
+   Tags* tags, std::optional<LibFileFormats::AcidizerTags>&)
 {
    BeginImport();
-   
+
    mHasParseError = false;
-   
+
    auto &history = ProjectHistory::Get(mProject);
    auto &tracks = TrackList::Get(mProject);
    auto &viewInfo = ViewInfo::Get(mProject);
-   auto &selman = ProjectSelectionManager::Get(mProject);
+   auto &formats = ProjectNumericFormats::Get(mProject);
 
    auto oldNumTracks = tracks.Size();
    auto cleanup = finally([this, &tracks, oldNumTracks]{
@@ -355,7 +352,7 @@ void AUPImportFileHandle::Import(ImportProgressListener& progressListener,
       ImportUtils::ShowMessageBox(mErrorMsg);
       mErrorMsg = {};
    }
-   
+
    // (If we keep this entire source file at all)
 
    sampleCount processed = 0;
@@ -442,34 +439,22 @@ void AUPImportFileHandle::Import(ImportProgressListener& progressListener,
 
    if (mProjectAttrs.haveselectionformat)
    {
-      selman.AS_SetSelectionFormat(NumericConverterFormats::Lookup(
-         FormatterContext::ProjectContext(mProject), NumericConverterType_TIME(),
-         mProjectAttrs.selectionformat));
+      formats.SetSelectionFormat(mProjectAttrs.selectionformat);
    }
 
    if (mProjectAttrs.haveaudiotimeformat)
    {
-      selman.TT_SetAudioTimeFormat(NumericConverterFormats::Lookup(
-         FormatterContext::ProjectContext(mProject), NumericConverterType_TIME(),
-         mProjectAttrs.audiotimeformat));
+      formats.SetAudioTimeFormat(mProjectAttrs.audiotimeformat);
    }
 
    if (mProjectAttrs.havefrequencyformat)
    {
-      selman.SSBL_SetFrequencySelectionFormatName(
-         NumericConverterFormats::Lookup(
-            FormatterContext::ProjectContext(mProject),
-            NumericConverterType_FREQUENCY(),
-         mProjectAttrs.frequencyformat));
+      formats.SetFrequencySelectionFormatName(mProjectAttrs.frequencyformat);
    }
 
    if (mProjectAttrs.havebandwidthformat)
    {
-      selman.SSBL_SetBandwidthSelectionFormatName(
-         NumericConverterFormats::Lookup(
-            FormatterContext::ProjectContext(mProject),
-            NumericConverterType_BANDWIDTH(),
-         mProjectAttrs.bandwidthformat));
+      formats.SetBandwidthSelectionFormatName(mProjectAttrs.bandwidthformat);
    }
 
    // PRL: It seems this must happen after SetSnapTo
@@ -480,7 +465,7 @@ void AUPImportFileHandle::Import(ImportProgressListener& progressListener,
 
    if (mProjectAttrs.haveh)
    {
-      viewInfo.h = mProjectAttrs.h;
+      viewInfo.hpos = mProjectAttrs.h;
    }
 
    if (mProjectAttrs.havezoom)
@@ -509,7 +494,7 @@ void AUPImportFileHandle::Import(ImportProgressListener& progressListener,
       viewInfo.selectedRegion.setF1(mProjectAttrs.selHigh);
    }
 #endif
-   
+
    progressListener.OnImportResult(ImportProgressListener::ImportResult::Success);
 }
 
@@ -1381,10 +1366,8 @@ bool AUPImportFileHandle::HandleImport(XMLTagHandler *&handler)
    // Guard this call so that C++ exceptions don't propagate through
    // the expat library
    GuardedCall(
-      [&] {
-         ProjectFileManager::Get( mProject ).Import(strAttr, false); },
-      [&] (AudacityException*) {}
-   );
+      [&] { ProjectFileManager::Get(mProject).Import(strAttr, false); },
+      [&](AudacityException*) {});
 
    if (oldNumTracks == tracks.Size())
       return false;

@@ -7,16 +7,16 @@
 #include "Project.h"
 #include "ProjectAudioIO.h"
 #include "ProjectHistory.h"
-#include "../ProjectWindow.h"
+
 #include "../SelectUtilities.h"
 #include "SyncLock.h"
-#include "../TrackPanelAx.h"
+#include "TrackFocus.h"
 #include "../TrackPanel.h"
 #include "ViewInfo.h"
+#include "Viewport.h"
 #include "WaveTrack.h"
 #include "WaveTrackUtilities.h"
-#include "../commands/CommandContext.h"
-#include "../commands/CommandManager.h"
+#include "CommandContext.h"
 #include "../tracks/labeltrack/ui/LabelTrackView.h"
 #include "toolbars/ToolManager.h"
 
@@ -114,7 +114,7 @@ int DoAddLabel(
 
    if (!useDialog) {
       TrackFocus::Get(project).Set(lt);
-      lt->EnsureVisible();
+      Viewport::Get(project).ShowTrack(*lt);
    }
    trackPanel.SetFocus();
 
@@ -386,7 +386,7 @@ void OnPasteNewLabel(const CommandContext &context)
    // and set focus
    if (plt) {
       TrackFocus::Get(project).Set(plt);
-      plt->EnsureVisible();
+      Viewport::Get(project).ShowTrack(*plt);
       trackPanel.SetFocus();
    }
 
@@ -623,7 +623,7 @@ void OnJoinLabels(const CommandContext &context)
       track.TypeSwitch(
          [&](WaveTrack& t) { t.Join(t0, t1, std::move(reportProgress)); });
    };
-   WaveTrackUtilities::WithStretchRenderingProgress(
+   WaveTrackUtilities::WithClipRenderingProgress(
       [&](ProgressReporter progress) {
          EditByLabel(project, tracks, selectedRegion, editfunc, progress);
       });
@@ -678,16 +678,15 @@ void OnNewLabelTrack(const CommandContext &context)
       .PushState(XO("Created new label track"), XO("New Track"));
 
    TrackFocus::Get(project).Set(track);
-   track->EnsureVisible();
+   Viewport::Get(project).ShowTrack(*track);
 }
 
 // Menu definitions
 
-using namespace MenuTable;
-BaseItemSharedPtr LabelEditMenus()
+using namespace MenuRegistry;
+auto LabelEditMenus()
 {
-   using namespace MenuTable;
-   using Options = CommandManager::Options;
+   using namespace MenuRegistry;
 
    static const auto NotBusyLabelsAndWaveFlags =
       AudioIONotBusyFlag() |
@@ -695,7 +694,7 @@ BaseItemSharedPtr LabelEditMenus()
 
    // Returns TWO menus.
 
-   static BaseItemSharedPtr menus{
+   static auto menus = std::shared_ptr{
    Items( wxT("LabelEditMenus"),
 
    Menu( wxT("Labels"), XXO("&Labels"),
@@ -783,15 +782,15 @@ BaseItemSharedPtr LabelEditMenus()
    return menus;
 }
 
-AttachedItem sAttachment1{
+AttachedItem sAttachment1{ Indirect(LabelEditMenus()),
    { wxT("Edit/Other"),
-     { OrderingHint::Before, wxT("EditMetaData") } },
-   Indirect(LabelEditMenus())
+     { OrderingHint::Before, wxT("EditMetaData") } }
 };
 
-AttachedItem sAttachment2{ wxT("Tracks/Add/Add"),
+AttachedItem sAttachment2{
    Command( wxT("NewLabelTrack"), XXO("&Label Track"),
-      OnNewLabelTrack, AudioIONotBusyFlag() )
+      OnNewLabelTrack, AudioIONotBusyFlag() ),
+   wxT("Tracks/Add/Add")
 };
 
 }

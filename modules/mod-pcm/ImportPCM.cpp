@@ -34,10 +34,11 @@
 #endif
 
 #include "FileFormats.h"
-#include "WaveTrack.h"
+#include "GetAcidizerTags.h"
 #include "ImportPlugin.h"
-#include "ImportUtils.h"
 #include "ImportProgressListener.h"
+#include "ImportUtils.h"
+#include "WaveTrack.h"
 
 #include <algorithm>
 
@@ -80,10 +81,10 @@ public:
 
    TranslatableString GetFileDescription() override;
    ByteCount GetFileUncompressedBytes() override;
-   void Import(ImportProgressListener &progressListener,
-               WaveTrackFactory *trackFactory,
-               TrackHolders &outTracks,
-               Tags *tags) override;
+   void Import(
+      ImportProgressListener& progressListener, WaveTrackFactory* trackFactory,
+      TrackHolders& outTracks, Tags* tags,
+      std::optional<LibFileFormats::AcidizerTags>& outAcidTags) override;
 
    wxInt32 GetStreamCount() override { return 1; }
 
@@ -277,13 +278,13 @@ struct id3_tag_deleter {
 using id3_tag_holder = std::unique_ptr<id3_tag, id3_tag_deleter>;
 #endif
 
-void PCMImportFileHandle::Import(ImportProgressListener &progressListener,
-                                 WaveTrackFactory *trackFactory,
-                                 TrackHolders &outTracks,
-                                 Tags *tags)
+void PCMImportFileHandle::Import(
+   ImportProgressListener& progressListener, WaveTrackFactory* trackFactory,
+   TrackHolders& outTracks, Tags* tags,
+   std::optional<LibFileFormats::AcidizerTags>& outAcidTags)
 {
    BeginImport();
-   
+
    outTracks.clear();
 
    wxASSERT(mFile.get());
@@ -319,7 +320,7 @@ void PCMImportFileHandle::Import(ImportProgressListener &progressListener,
          progressListener.OnImportResult(ImportProgressListener::ImportResult::Error);
          return;
       }
-      
+
       SampleBuffer srcbuffer, buffer;
       wxASSERT(mInfo.channels >= 0);
       while (NULL == srcbuffer.Allocate(maxBlock * mInfo.channels, mFormat).ptr() ||
@@ -433,6 +434,12 @@ void PCMImportFileHandle::Import(ImportProgressListener &progressListener,
    if (str) {
       tags->SetTag(TAG_GENRE, UTF8CTOWX(str));
    }
+
+   // To begin with, only trust the Muse Hub, with whom we collaborate and can
+   // ensure they comply. In the future we may extend this list.
+   const std::vector<std::string> trustedDistributors { "Muse Hub" };
+   if (const auto acidTags = LibImportExport::GetAcidizerTags(*mFile, trustedDistributors))
+      outAcidTags.emplace(*acidTags);
 
 #if defined(USE_LIBID3TAG)
    if (((mInfo.format & SF_FORMAT_TYPEMASK) == SF_FORMAT_AIFF) ||

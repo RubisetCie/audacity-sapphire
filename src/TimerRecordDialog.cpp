@@ -37,6 +37,7 @@
 #include <wx/datectrl.h>
 #include <wx/datetime.h>
 #include <wx/dynlib.h> //<! For windows.h
+#include <wx/frame.h>
 
 #include "AudioIO.h"
 #include "SelectFile.h"
@@ -46,8 +47,7 @@
 #include "ProjectFileManager.h"
 #include "ProjectManager.h"
 #include "ProjectRate.h"
-#include "ProjectWindow.h"
-#include "ProjectSettings.h"
+#include "ProjectWindows.h"
 #include "Project.h"
 #include "Prefs.h"
 #include "Track.h"
@@ -63,7 +63,7 @@
 #include "prefs/ImportExportPrefs.h"
 
 #include "TimerRecordExportDialog.h"
-#include "export/ExportProgressUI.h"
+#include "ExportProgressUI.h"
 
 #if wxUSE_ACCESSIBILITY
 #include "WindowAccessible.h"
@@ -214,6 +214,7 @@ TimerRecordDialog::TimerRecordDialog(
    }
 
    m_iAutoExportSampleRate = ProjectRate::Get(mProject).GetRate();
+   m_iAutoExportChannels = AudioIORecordChannels.Read();
 
    ShuttleGui S(this, eIsCreating);
    this->PopulateOrExchange(S);
@@ -1170,13 +1171,12 @@ ProgressResult TimerRecordDialog::PreActionDelay(int iActionIndex, TimerRecordCo
 
 // Register a menu item
 
-#include "commands/CommandContext.h"
-#include "commands/CommandManager.h"
+#include "CommandContext.h"
+#include "MenuRegistry.h"
 #include "CommonCommandFlags.h"
 #include "Project.h"
 #include "ProjectHistory.h"
 #include "ProjectSettings.h"
-#include "ProjectWindow.h"
 #include "UndoManager.h"
 
 namespace {
@@ -1185,7 +1185,7 @@ void OnTimerRecord(const CommandContext &context)
    auto &project = context.project;
    const auto &settings = ProjectSettings::Get( project );
    auto &undoManager = UndoManager::Get( project );
-   auto &window = ProjectWindow::Get( project );
+   auto &window = GetProjectFrame(project);
 
    // MY: Due to improvements in how Timer Recording saves and/or exports
    // it is now safer to disable Timer Recording when there is more than
@@ -1324,12 +1324,12 @@ void OnTimerRecord(const CommandContext &context)
 
 const auto CanStopFlags = AudioIONotBusyFlag() | CanStopAudioStreamFlag();
 
-using namespace MenuTable;
+using namespace MenuRegistry;
 AttachedItem sAttachment{
-   { wxT("Transport/Basic/Record"),
-      { OrderingHint::After, wxT("Record2ndChoice") } },
    Command( wxT("TimerRecord"), XXO("&Timer Record..."),
-      OnTimerRecord, CanStopFlags, wxT("Shift+T") )
+      OnTimerRecord, CanStopFlags, wxT("Shift+T") ),
+   { wxT("Transport/Basic/Record"),
+      { OrderingHint::After, wxT("Record2ndChoice") } }
 };
 
 }

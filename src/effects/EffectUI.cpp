@@ -19,17 +19,20 @@
 #include "AllThemeResources.h"
 #include "widgets/BasicMenu.h"
 #include "BasicUI.h"
+#include "CommandManager.h"
 #include "ConfigInterface.h"
 #include "EffectManager.h"
 #include "PluginManager.h"
 #include "ProjectAudioIO.h"
 #include "ProjectHistory.h"
 #include "../ProjectWindowBase.h"
-#include "../TrackPanelAx.h"
+#include "../ProjectWindows.h"
+#include "TrackFocus.h"
 #include "RealtimeEffectList.h"
 #include "RealtimeEffectManager.h"
 #include "RealtimeEffectState.h"
 #include "Theme.h"
+#include "Viewport.h"
 #include "wxWidgetsWindowPlacement.h"
 
 static PluginID GetID(EffectPlugin &effect)
@@ -96,14 +99,13 @@ private:
 #include "../../images/Effect.h"
 #include "AudioIO.h"
 #include "../CommonCommandFlags.h"
-#include "../Menus.h"
 #include "../prefs/GUISettings.h" // for RTL_WORKAROUND
 #include "Project.h"
 #include "../ProjectAudioManager.h"
 #include "ShuttleGui.h"
 #include "ViewInfo.h"
 #include "../commands/AudacityCommand.h"
-#include "../commands/CommandContext.h"
+#include "CommandContext.h"
 #include "AudacityMessageBox.h"
 #include "HelpSystem.h"
 #include "../widgets/AButton.h"
@@ -348,18 +350,14 @@ AButton* MakeBitmapToggleButton(wxWindow *parent,
    pBtn->SetImages(ImageOff, ImageOff, ImageOn, ImageOn, ImageOff);
    return pBtn;
 }
+   constexpr int InnerMargin = 3;
 }
 
-void EffectUIHost::BuildButtonBar(ShuttleGui &S, bool graphicalUI)
+void EffectUIHost::BuildTopBar(ShuttleGui &S)
 {
-   mIsGUI = graphicalUI;
-   mIsBatch = mEffectUIHost.IsBatchProcessing();
-
-   constexpr int margin = 3;
-
    S.StartPanel();
    {
-      S.SetBorder( margin );
+      S.SetBorder( InnerMargin );
 
       S.StartHorizontalLay(wxEXPAND, 0);
       {
@@ -379,36 +377,7 @@ void EffectUIHost::BuildButtonBar(ShuttleGui &S, bool graphicalUI)
 
          S.AddSpace(1, 0, 1);
 
-         if (!mIsBatch)
-         {
-            if (!IsOpenedFromEffectPanel() &&
-               (mEffectUIHost.GetDefinition().GetType() != EffectTypeAnalyze) &&
-               (mEffectUIHost.GetDefinition().GetType() != EffectTypeTool) )
-            {
-               mPlayToggleBtn = S.Id(kPlayID)
-                  .ToolTip(XO("Preview effect"))
-                  .AddButton( { },
-                              wxALIGN_CENTER | wxTOP | wxBOTTOM );
-            }
-            if(mPlayToggleBtn != nullptr)
-            {
-               //wxButton does not implement GetSizeFromText
-               //set button minimum size so that largest text fits
-               mPlayToggleBtn->SetLabel(_("Stop &Preview"));
-               auto a = mPlayToggleBtn->GetBestSize();
-               mPlayToggleBtn->SetLabel(_("&Preview"));
-               auto b = mPlayToggleBtn->GetBestSize();
-               mPlayToggleBtn->SetMinSize(a.x > b.x ? a : b);
-            }
-         }
-
-         if (!IsOpenedFromEffectPanel())
-         {
-            mApplyBtn = S.Id(wxID_APPLY)
-               .AddButton( XXO("&Apply"),
-                           wxALIGN_CENTER | wxTOP | wxBOTTOM );
-            mApplyBtn->SetDefault();
-         }
+         
 
          if (mEffectUIHost.GetDefinition().EnablesDebug())
          {
@@ -431,6 +400,8 @@ bool EffectUIHost::Initialize()
    EffectPanel *w {};
    ShuttleGui S{ this, eIsCreating };
    {
+      BuildTopBar(S);
+
       // Make the panel for the client
       Destroy_ptr<EffectPanel> uw{ safenew EffectPanel( S.GetParent() ) };
       RTL_WORKAROUND(uw.get());
@@ -446,7 +417,8 @@ bool EffectUIHost::Initialize()
       if (!mpEditor)
          return false;
 
-      BuildButtonBar(S, mpEditor->IsGraphicalUI());
+      mIsGUI = mpEditor->IsGraphicalUI();
+      mIsBatch = mEffectUIHost.IsBatchProcessing();
 
       S.StartHorizontalLay( wxEXPAND );
       {
@@ -455,6 +427,38 @@ bool EffectUIHost::Initialize()
             .AddWindow((w = uw.release()));
       }
       S.EndHorizontalLay();
+
+      if (!IsOpenedFromEffectPanel())
+      {
+         S.StartPanel();
+         {
+            S.SetBorder( InnerMargin );
+            S.StartHorizontalLay(wxEXPAND, 0);
+            {
+               if (!mIsBatch)
+               {
+                  if (mEffectUIHost.GetDefinition().GetType() != EffectTypeAnalyze &&
+                     mEffectUIHost.GetDefinition().GetType() != EffectTypeTool)
+                  {
+                     S.Id(kPlayID)
+                        .ToolTip(XO("Preview effect"))
+                        .AddButton( XXO("&Preview"),
+                                    wxALIGN_CENTER | wxTOP | wxBOTTOM );
+                  }
+               }
+
+               S.AddSpace(1, 1, 1);
+               S.Id(wxID_CANCEL)
+                  .AddButton(XXO("&Cancel"));
+               
+               mApplyBtn = S.Id(wxID_APPLY)
+                  .AddButton( XXO("&Apply"));
+               mApplyBtn->SetDefault();
+            }
+            S.EndHorizontalLay();
+         }
+         S.EndPanel();
+      }
    }
 
    Layout();
@@ -559,7 +563,7 @@ void EffectUIHost::OnApply(wxCommandEvent & evt)
    {
       auto flags = AlwaysEnabledFlag;
       bool allowed =
-      MenuManager::Get( project ).ReportIfActionNotAllowed(
+      CommandManager::Get( project ).ReportIfActionNotAllowed(
          mEffectUIHost.GetDefinition().GetName(),
          flags,
          WaveTracksSelectedFlag() | TimeSelectedFlag());
@@ -1131,11 +1135,9 @@ DialogFactoryResults EffectUI::DialogFactory(wxWindow &parent,
 
 #include "PluginManager.h"
 #include "ProjectRate.h"
-#include "../ProjectWindow.h"
 #include "../SelectUtilities.h"
-#include "../TrackPanel.h"
 #include "WaveTrack.h"
-#include "../commands/CommandManager.h"
+#include "CommandManager.h"
 
 /// DoEffect() takes a PluginID and executes the associated effect.
 ///
@@ -1148,12 +1150,12 @@ DialogFactoryResults EffectUI::DialogFactory(wxWindow &parent,
 {
    AudacityProject &project = context.project;
    auto &tracks = TrackList::Get( project );
-   auto &trackPanel = TrackPanel::Get( project );
    auto &trackFactory = WaveTrackFactory::Get( project );
    auto rate = ProjectRate::Get(project).GetRate();
    auto &selectedRegion = ViewInfo::Get( project ).selectedRegion;
    auto &commandManager = CommandManager::Get( project );
-   auto &window = ProjectWindow::Get( project );
+   auto &viewport = Viewport::Get(project);
+   auto &window = GetProjectFrame(project);
 
    const PluginDescriptor *plug = PluginManager::Get().GetPlugin(ID);
 
@@ -1195,7 +1197,7 @@ DialogFactoryResults EffectUI::DialogFactory(wxWindow &parent,
          // For now, we're limiting realtime preview to a single effect, so
          // make sure the menus reflect that fact that one may have just been
          // opened.
-         MenuManager::Get(project).UpdateMenus( false );
+         CommandManager::Get(project).UpdateMenus( false );
       }
 
    } );
@@ -1272,31 +1274,32 @@ DialogFactoryResults EffectUI::DialogFactory(wxWindow &parent,
          /* i18n-hint: %s will be the name of the effect which will be
           * repeated if this menu item is chosen */
          auto lastEffectDesc = XO("Repeat %s").Format(shortDesc);
-         auto& menuManager = MenuManager::Get(project);
          switch ( type ) {
          case EffectTypeGenerate:
             commandManager.Modify(wxT("RepeatLastGenerator"), lastEffectDesc);
-            menuManager.mLastGenerator = ID;
-            menuManager.mRepeatGeneratorFlags = EffectManager::kConfigured;
+            commandManager.mLastGenerator = ID;
+            commandManager.mRepeatGeneratorFlags = EffectManager::kConfigured;
             break;
          case EffectTypeProcess:
             commandManager.Modify(wxT("RepeatLastEffect"), lastEffectDesc);
-            menuManager.mLastEffect = ID;
-            menuManager.mRepeatEffectFlags = EffectManager::kConfigured;
+            commandManager.mLastEffect = ID;
+            commandManager.mRepeatEffectFlags = EffectManager::kConfigured;
             break;
          case EffectTypeAnalyze:
             commandManager.Modify(wxT("RepeatLastAnalyzer"), lastEffectDesc);
-            menuManager.mLastAnalyzer = ID;
-            menuManager.mLastAnalyzerRegistration = MenuCreator::repeattypeplugin;
-            menuManager.mRepeatAnalyzerFlags = EffectManager::kConfigured;
+            commandManager.mLastAnalyzer = ID;
+            commandManager.mLastAnalyzerRegistration =
+               CommandManager::repeattypeplugin;
+            commandManager.mRepeatAnalyzerFlags = EffectManager::kConfigured;
             break;
          case EffectTypeTool:
             commandManager.Modify(wxT("RepeatLastTool"), lastEffectDesc);
-            menuManager.mLastTool = ID;
-            menuManager.mLastToolRegistration = MenuCreator::repeattypeplugin;
-            menuManager.mRepeatToolFlags = EffectManager::kConfigured;
+            commandManager.mLastTool = ID;
+            commandManager.mLastToolRegistration =
+               CommandManager::repeattypeplugin;
+            commandManager.mRepeatToolFlags = EffectManager::kConfigured;
             if (shortDesc == NYQUIST_PROMPT_NAME) {
-               menuManager.mRepeatToolFlags = EffectManager::kRepeatNyquistPrompt;  //Nyquist Prompt is not configured
+               commandManager.mRepeatToolFlags = EffectManager::kRepeatNyquistPrompt;  //Nyquist Prompt is not configured
             }
             break;
       }
@@ -1309,12 +1312,11 @@ DialogFactoryResults EffectUI::DialogFactory(wxWindow &parent,
    if (type == EffectTypeGenerate)
    {
       if (!anyTracks || (clean && selectedRegion.t0() == 0.0))
-         window.DoZoomFit();
-         //  trackPanel->Refresh(false);
+         viewport.ZoomFitHorizontally();
    }
 
-   // PRL:  RedrawProject explicitly because sometimes history push is skipped
-   window.RedrawProject();
+   // PRL:  Redraw explicitly because sometimes history push is skipped
+   viewport.Redraw();
 
    if (focus != nullptr && focus->GetParent()==parent) {
       focus->SetFocus();
@@ -1325,8 +1327,7 @@ DialogFactoryResults EffectUI::DialogFactory(wxWindow &parent,
    // Don't care what track type.  An analyser might just have added a
    // Label track and we want to see it.
    if (tracks.Size() > nTracksOriginally) {
-      // 0.0 is min scroll position, 1.0 is max scroll position.
-      trackPanel.VerticalScroll( 1.0 );
+      viewport.ScrollToBottom();
    }
    else {
       auto pTrack = *tracks.Selected().begin();
@@ -1334,7 +1335,7 @@ DialogFactoryResults EffectUI::DialogFactory(wxWindow &parent,
          pTrack = *tracks.begin();
       if (pTrack) {
          TrackFocus::Get(project).Set(pTrack);
-         pTrack->EnsureVisible();
+         Viewport::Get(project).ShowTrack(*pTrack);
       }
    }
 

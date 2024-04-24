@@ -191,7 +191,15 @@ struct MyGenericProgress : wxGenericProgressDialog, GenericProgressDialog {
       }
    {}
    ~MyGenericProgress() override = default;
-   void Pulse() override { wxGenericProgressDialog::Pulse(); }
+   ProgressResult Pulse() override
+   {
+      if (wxGenericProgressDialog::Pulse())
+            return ProgressResult::Success;
+      else if (WasCancelled())
+            return ProgressResult::Cancelled;
+      else
+            return ProgressResult::Stopped;
+   }
 };
 }
 
@@ -228,4 +236,14 @@ void wxWidgetsBasicUI::DoSetFocus(const BasicUI::WindowPlacement &focus)
 {
    auto pWindow = wxWidgetsWindowPlacement::GetParent(focus);
    pWindow->SetFocus();
+}
+
+bool wxWidgetsBasicUI::IsUsingRtlLayout() const
+{
+   return wxLayout_RightToLeft == wxTheApp->GetLayoutDirection();
+}
+
+bool wxWidgetsBasicUI::IsUiThread() const
+{
+   return wxIsMainThread();
 }

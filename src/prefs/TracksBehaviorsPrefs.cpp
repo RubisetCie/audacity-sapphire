@@ -98,9 +98,6 @@ void TracksBehaviorsPrefs::PopulateOrExchange(ShuttleGui & S)
       S.TieCheckBox(XXO("Enable cut &lines"),
                     {wxT("/GUI/EnableCutLines"),
                      false});
-      S.TieCheckBox(XXO("Enable &dragging selection edges"),
-                    {wxT("/GUI/AdjustSelectionEdges"),
-                     true});
       S.TieCheckBox(XXO("Editing a clip can &move other clips"),
             EditClipsCanMove);
       S.TieCheckBox(
@@ -114,13 +111,6 @@ void TracksBehaviorsPrefs::PopulateOrExchange(ShuttleGui & S)
                      false});
       S.TieCheckBox(XXO("Use dialog for the &name of a new label"),
                     {wxT("/GUI/DialogForNameNewLabel"),
-                     false});
-#ifdef EXPERIMENTAL_SCROLLING_LIMITS
-      S.TieCheckBox(XXO("Enable scrolling left of &zero"),
-                    ScrollingPreference);
-#endif
-      S.TieCheckBox(XXO("Advanced &vertical zooming"),
-                    {wxT("/GUI/VerticalZooming"),
                      false});
 
       S.AddSpace(10);
@@ -183,7 +173,6 @@ bool TracksBehaviorsPrefs::Commit()
    ShuttleGui S(this, eIsSavingToPrefs);
    PopulateOrExchange(S);
    EditClipsCanMove.Invalidate();
-   ScrollingPreference.Invalidate();
 
    return true;
 }

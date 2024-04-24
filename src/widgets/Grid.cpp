@@ -12,8 +12,6 @@
 \brief Supplies an accessible grid based on wxGrid.
 
 *//*******************************************************************/
-
-
 #include "Grid.h"
 
 #include <wx/setup.h> // for wxUSE_* macros
@@ -26,6 +24,7 @@
 #include <wx/settings.h>
 #include <wx/toplevel.h>
 
+#include "IteratorX.h"
 #include "NumericConverterFormats.h"
 
 #include "SelectedRegion.h"
@@ -123,7 +122,7 @@ class GridAx final : public WindowAccessible
 
 NumericEditor::NumericEditor(
    const FormatterContext& context, NumericConverterType type,
-   const NumericFormatSymbol& format)
+   const NumericFormatID& format)
     : mContext { context }
 {
    mType = std::move(type);
@@ -224,12 +223,12 @@ wxString NumericEditor::GetValue() const
    return wxString::Format(wxT("%g"), GetNumericTextControl()->GetValue());
 }
 
-NumericFormatSymbol NumericEditor::GetFormat() const
+NumericFormatID NumericEditor::GetFormat() const
 {
    return mFormat;
 }
 
-void NumericEditor::SetFormat(const NumericFormatSymbol &format)
+void NumericEditor::SetFormat(const NumericFormatID &format)
 {
    mFormat = format;
 }
@@ -479,13 +478,15 @@ Grid::Grid(
 
    RegisterDataType(GRID_VALUE_TIME,
                     safenew NumericRenderer{ mContext, NumericConverterType_TIME() },
-                    safenew NumericEditor { mContext, NumericConverterType_TIME(),
-                        NumericConverterFormats::SecondsFormat() });
+                    safenew NumericEditor
+                      { mContext, NumericConverterType_TIME(),
+                        NumericConverterFormats::SecondsFormat().Internal() });
 
    RegisterDataType(GRID_VALUE_FREQUENCY,
                     safenew NumericRenderer{ mContext, NumericConverterType_FREQUENCY() },
-                    safenew NumericEditor { mContext, NumericConverterType_FREQUENCY(),
-                      NumericConverterFormats::HertzFormat() });
+                    safenew NumericEditor
+                    { mContext, NumericConverterType_FREQUENCY(),
+                      NumericConverterFormats::HertzFormat().Internal() });
 
    RegisterDataType(GRID_VALUE_CHOICE,
                     safenew wxGridCellStringRenderer,

@@ -15,10 +15,15 @@
 #include <vector>
 
 #include "../../../ui/CommonTrackPanelCell.h"
+#include "WaveTrack.h"
+#include <wx/frame.h>
 
 class sampleCount;
 class AudacityProject;
+enum class PitchAndSpeedDialogFocus;
 
+namespace WaveClipUtilities
+{
 AUDACITY_DLL_API
 void findCorrection(
    const std::vector<sampleCount>& oldWhere, size_t oldLen, size_t newLen,
@@ -32,6 +37,9 @@ void fillWhere(
 
 std::vector<CommonTrackPanelCell::MenuItem> GetWaveClipMenuItems();
 
-void PushClipSpeedChangedUndoState(AudacityProject& project, double speedInPercent);
+void PushClipSpeedChangedUndoState(
+   AudacityProject& project, double speedInPercent);
 
+void SelectClip(AudacityProject& project, const WaveTrack::Interval& clip);
+} // namespace WaveClipUtilities
 #endif

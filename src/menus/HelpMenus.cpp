@@ -13,19 +13,17 @@
 #include "HelpText.h"
 #include "../HelpUtilities.h"
 #include "LogWindow.h"
-#include "../Menus.h"
 #include "Prefs.h"
 #include "Project.h"
 #include "ProjectSnap.h"
-#include "../ProjectSelectionManager.h"
 #include "../ProjectWindows.h"
 #include "SelectFile.h"
 #include "ShuttleGui.h"
 #include "../SplashDialog.h"
 #include "SyncLock.h"
 #include "Theme.h"
-#include "../commands/CommandContext.h"
-#include "../commands/CommandManager.h"
+#include "CommandContext.h"
+#include "MenuRegistry.h"
 #include "../prefs/PrefsDialog.h"
 #include "AudacityMessageBox.h"
 #include "HelpSystem.h"
@@ -323,57 +321,46 @@ void OnAssertion(const CommandContext &)
 void OnMenuTree(const CommandContext &context)
 {
    auto &project = context.project;
-   
-   using namespace MenuTable;
-   struct MyVisitor : ProjectMenuVisitor
-   {
-      using ProjectMenuVisitor::ProjectMenuVisitor;
+   enum : unsigned { TAB = 3 };
 
-      enum : unsigned { TAB = 3 };
-      void DoBeginGroup( GroupItemBase &item, const Path& ) override
-      {
-         if ( dynamic_cast<MenuItem*>( &item ) ) {
+   unsigned level{};
+   wxString indentation;
+   wxString info;
+   auto Indent = [&](){ info += indentation; };
+   auto Return = [&](){ info += '\n'; };
+
+   using namespace MenuRegistry;
+   auto visitor = Visitor<Traits>{
+      std::tuple{
+         [&](const MenuItem &item, const auto&) {
             Indent();
             // using GET for alpha only diagnostic tool
             info += item.name.GET();
             Return();
             indentation = wxString{ ' ', TAB * ++level };
-         }
-      }
+         },
 
-      void DoEndGroup( GroupItemBase &item, const Path& ) override
-      {
-         if ( dynamic_cast<MenuItem*>( &item ) )
+         [&](const SingleItem &item, const auto&) {
+            // using GET for alpha only diagnostic tool
+            Indent();
+            info += item.name.GET();
+            Return();
+         },
+
+         [&](const MenuItem &item, const auto&) {
             indentation = wxString{ ' ', TAB * --level };
-      }
-
-      void DoVisit( SingleItem &item, const Path& ) override
-      {
-         // using GET for alpha only diagnostic tool
-         Indent();
-         info += item.name.GET();
-         Return();
-      }
-
-      void DoSeparator() override
-      {
+         }
+      },
+      [&]() {
          static const wxString separatorName{ '=', 20 };
          Indent();
          info += separatorName;
          Return();
       }
+   };
+   MenuRegistry::Visit(visitor, project);
 
-      void Indent() { info += indentation; }
-      void Return() { info += '\n'; }
-
-      unsigned level{};
-      wxString indentation;
-      wxString info;
-   } visitor{ project };
-
-   MenuManager::Visit( visitor );
-
-   ShowDiagnostics( project, visitor.info,
+   ShowDiagnostics( project, info,
       Verbatim("Menu Tree"), wxT("menutree.txt"), true );
 }
 
@@ -427,30 +414,16 @@ void OnHelpWelcome(const CommandContext &context)
 
 // Menu definitions
 
-using namespace MenuTable;
-BaseItemSharedPtr HelpMenu()
+using namespace MenuRegistry;
+auto HelpMenu()
 {
-   static BaseItemSharedPtr menu{
+   static auto menu = std::shared_ptr{
    Menu( wxT("Help"), XXO("&Help"),
       Section( "Basic",
-         // QuickFix menu item not in Audacity 2.3.1 whilst we discuss further.
-   #ifdef EXPERIMENTAL_DA
-         // DA: Has QuickFix menu item.
-         Command( wxT("QuickFix"), XXO("&Quick Fix..."), OnQuickFix,
-            AlwaysEnabledFlag ),
-         // DA: 'Getting Started' rather than 'Quick Help'.
-         Command( wxT("QuickHelp"), XXO("&Getting Started"), OnQuickHelp,
-            AlwaysEnabledFlag ),
-         // DA: Emphasise it is the Audacity Manual (No separate DA manual).
-         Command( wxT("Manual"), XXO("Audacity &Manual"), OnManual,
-            AlwaysEnabledFlag )
-
-   #else
          Command( wxT("QuickHelp"), XXO("&Quick Help..."), OnQuickHelp,
             AlwaysEnabledFlag ),
          Command( wxT("Manual"), XXO("&Manual..."), OnManual,
             AlwaysEnabledFlag )
-   #endif
       ),
 
    #ifdef __WXMAC__
@@ -498,8 +471,7 @@ BaseItemSharedPtr HelpMenu()
       ),
 
       Section( "Extra",
-         // DA: Does not fully support update checking.
-   #if !defined(EXPERIMENTAL_DA) && defined(HAVE_UPDATES_CHECK)
+   #if defined(HAVE_UPDATES_CHECK)
          Command( wxT("Updates"), XXO("&Check for Updates..."),
             OnCheckForUpdates,
             AlwaysEnabledFlag ),
@@ -511,9 +483,6 @@ BaseItemSharedPtr HelpMenu()
    return menu;
 }
 
-AttachedItem sAttachment1{
-   wxT(""),
-   Indirect(HelpMenu())
-};
+AttachedItem sAttachment1{ Indirect(HelpMenu()) };
 
 }

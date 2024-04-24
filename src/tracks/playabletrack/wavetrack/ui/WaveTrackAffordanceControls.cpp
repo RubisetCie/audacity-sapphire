@@ -14,10 +14,10 @@
 #include <wx/frame.h>
 
 #include "AllThemeResources.h"
-#include "../../../../commands/CommandContext.h"
-#include "../../../../commands/CommandFlag.h"
-#include "../../../../commands/CommandFunctors.h"
-#include "../../../../commands/CommandManager.h"
+#include "CommandContext.h"
+#include "CommandFlag.h"
+#include "CommandFunctors.h"
+#include "MenuRegistry.h"
 #include "../../../../TrackPanelMouseEvent.h"
 #include "../../../../TrackArt.h"
 #include "../../../../TrackArtist.h"
@@ -31,9 +31,10 @@
 #include "../../../../ProjectWindows.h"
 #include "../../../../commands/AudacityCommand.h"
 
-#include "../../../ui/TextEditHelper.h"
 #include "../../../ui/SelectHandle.h"
-#include "WaveChannelView.h"//need only ClipParameters
+#include "../../../ui/TextEditHelper.h"
+#include "ClipParameters.h"
+#include "WaveChannelView.h"
 #include "WaveTrackAffordanceHandle.h"
 
 #include "ProjectHistory.h"
@@ -44,14 +45,16 @@
 #include "../../../../../images/Cursors.h"
 #include "../../../../HitTestResult.h"
 #include "../../../../TrackPanel.h"
-#include "../../../../TrackPanelAx.h"
+#include "TrackFocus.h"
 
 #include "../WaveTrackUtils.h"
 
+#include "ClipOverflowButtonHandle.h"
+#include "ClipPitchAndSpeedButtonHandle.h"
+#include "LowlitClipButton.h"
+#include "PitchAndSpeedDialog.h"
 #include "WaveClipAdjustBorderHandle.h"
 #include "WaveClipUtilities.h"
-
-#include "ChangeClipSpeedDialog.h"
 
 #include "BasicUI.h"
 #include "UserException.h"
@@ -87,15 +90,23 @@ const ComponentInterfaceSymbol SetWaveClipNameCommand::Symbol
 class WaveClipTitleEditHandle final : public UIHandle
 {
     std::shared_ptr<TextEditHelper> mHelper;
+    std::shared_ptr<WaveTrack> mpTrack;
 public:
 
-    WaveClipTitleEditHandle(const std::shared_ptr<TextEditHelper>& helper)
+    WaveClipTitleEditHandle(const std::shared_ptr<TextEditHelper>& helper,
+        const std::shared_ptr<WaveTrack> pTrack)
         : mHelper(helper)
+        , mpTrack{ move(pTrack) }
     { }
 
    ~WaveClipTitleEditHandle()
    {
    }
+
+    std::shared_ptr<const Channel> FindChannel() const override
+    {
+        return mpTrack;
+    }
 
     Result Click(const TrackPanelMouseEvent& event, AudacityProject* project) override
     {
@@ -162,8 +173,9 @@ std::vector<UIHandlePtr> WaveTrackAffordanceControls::HitTest(const TrackPanelMo
 {
     std::vector<UIHandlePtr> results;
 
-    auto px = state.state.m_x;
-    auto py = state.state.m_y;
+    const auto px = state.state.m_x;
+    const auto py = state.state.m_y;
+    const wxPoint mousePoint { px, py };
 
     const auto rect = state.rect;
 
@@ -187,7 +199,8 @@ std::vector<UIHandlePtr> WaveTrackAffordanceControls::HitTest(const TrackPanelMo
         results.push_back(
             AssignUIHandlePtr(
                 mTitleEditHandle,
-                std::make_shared<WaveClipTitleEditHandle>(mTextEditHelper)
+                std::make_shared<WaveClipTitleEditHandle>(
+                    mTextEditHelper, track)
             )
         );
     }
@@ -200,17 +213,44 @@ std::vector<UIHandlePtr> WaveTrackAffordanceControls::HitTest(const TrackPanelMo
         if (it == mEditedInterval)
             continue;
 
-        auto interval = *it;
-        if (WaveChannelView::HitTest(*interval->GetClip(0), zoomInfo, state.rect, {px, py}))
+        const auto clip = (*it)->GetClip(0);
+        if (LowlitClipButton::HitTest<ClipButtonId::Overflow>(
+               { *clip, zoomInfo, rect }, mousePoint))
         {
-            results.push_back(
-                AssignUIHandlePtr(
-                    mAffordanceHandle,
-                    std::make_shared<WaveTrackAffordanceHandle>(track, interval->GetClip(0))
-                )
-            );
-            mFocusInterval = it;
-            break;
+           results.push_back(AssignUIHandlePtr(
+              mOverflowButtonHandle, std::make_shared<ClipOverflowButtonHandle>(
+                                        track, *it, weak_from_this())));
+           mFocusInterval = it;
+           break;
+        }
+        else if (LowlitClipButton::HitTest<ClipButtonId::Pitch>(
+                    { *clip, zoomInfo, rect }, mousePoint))
+        {
+           results.push_back(AssignUIHandlePtr(
+              mPitchButtonHandle,
+              std::make_shared<ClipPitchAndSpeedButtonHandle>(
+                 ClipPitchAndSpeedButtonHandle::Type::Pitch, track, *it)));
+           mFocusInterval = it;
+           break;
+        }
+        else if (LowlitClipButton::HitTest<ClipButtonId::Speed>(
+                    { *clip, zoomInfo, rect }, mousePoint))
+        {
+           results.push_back(AssignUIHandlePtr(
+              mSpeedButtonHandle,
+              std::make_shared<ClipPitchAndSpeedButtonHandle>(
+                 ClipPitchAndSpeedButtonHandle::Type::Speed, track, *it)));
+           mFocusInterval = it;
+           break;
+        }
+        else if (WaveChannelView::HitTest(
+                    *clip, zoomInfo, state.rect, mousePoint))
+        {
+           results.push_back(AssignUIHandlePtr(
+              mAffordanceHandle,
+              std::make_shared<WaveTrackAffordanceHandle>(track, clip)));
+           mFocusInterval = it;
+           break;
         }
     }
 
@@ -251,38 +291,55 @@ void WaveTrackAffordanceControls::Draw(TrackPanelDrawingContext& context, const 
             auto px = context.lastState.m_x;
             auto py = context.lastState.m_y;
 
+            const auto overflowHandle = mOverflowButtonHandle.lock();
             const auto intervals = waveTrack->Intervals();
             for(auto it = intervals.begin(); it != intervals.end(); ++it)
             {
                 auto interval = *it;
-                auto affordanceRect
-                   = ClipParameters::GetClipRect(*interval->GetClip(0), zoomInfo, rect);
+                const auto& clip = *interval->GetClip(0);
+                const auto clipRect = ClipParameters::GetClipRect(
+                   clip, zoomInfo, rect);
 
-                if(!WaveChannelView::ClipDetailsVisible(*interval->GetClip(0), zoomInfo, rect))
+                if(!WaveChannelView::ClipDetailsVisible(clip, zoomInfo, rect))
                 {
-                   TrackArt::DrawClipFolded(context.dc, affordanceRect);
+                   TrackArt::DrawClipFolded(context.dc, clipRect);
                    continue;
                 }
 
                 const auto selected = GetSelectedInterval() == it;
-                const auto highlight = selected || affordanceRect.Contains(px, py);
-                const auto titleRect = TrackArt::DrawClipAffordance(context.dc, affordanceRect, highlight, selected);
+                const auto highlightAffordance =
+                    !overflowHandle && (selected || clipRect.Contains(px, py));
+                auto affordanceRect = TrackArt::DrawClipAffordance(
+                   context.dc, clipRect, highlightAffordance, selected);
+
+                if (
+                   const auto overflowButtonRect =
+                      LowlitClipButton::DrawOnClip<ClipButtonId::Overflow>(
+                         { clip, zoomInfo, rect }, context.dc))
+                   affordanceRect.width -= overflowButtonRect->width;
+                if (
+                   const auto speedButtonRect =
+                      LowlitClipButton::DrawOnClip<ClipButtonId::Speed>(
+                         { clip, zoomInfo, rect }, context.dc))
+                   affordanceRect.width -= speedButtonRect->width;
+                if (
+                   const auto pitchButtonRect =
+                      LowlitClipButton::DrawOnClip<ClipButtonId::Pitch>(
+                         { clip, zoomInfo, rect }, context.dc))
+                   affordanceRect.width -= pitchButtonRect->width;
+
                 if (mTextEditHelper && mEditedInterval == it)
                 {
-                    if(!mTextEditHelper->Draw(context.dc, titleRect))
-                    {
-                        mTextEditHelper->Cancel(nullptr);
-                        TrackArt::DrawAudioClipTitle(
-                           context.dc, titleRect, interval->GetName(),
-                           interval->GetStretchRatio());
-                    }
+                   if (!mTextEditHelper->Draw(context.dc, affordanceRect))
+                   {
+                      mTextEditHelper->Cancel(nullptr);
+                      TrackArt::DrawClipTitle(
+                         context.dc, affordanceRect, interval->GetName());
+                   }
                 }
-                else if (TrackArt::DrawAudioClipTitle(
-                            context.dc, titleRect, interval->GetName(),
-                            interval->GetStretchRatio()))
-                {
+                else if (TrackArt::DrawClipTitle(
+                            context.dc, affordanceRect, interval->GetName()))
                    mVisibleIntervals.push_back(it);
-                }
             }
         }
 
@@ -352,22 +409,31 @@ auto FindAffordance(WaveTrack &track)
       pAffordance );
 }
 
-std::pair<WaveTrack*, ChannelGroup::IntervalIterator<WaveTrack::Interval>>
-SelectedIntervalOfFocusedTrack(AudacityProject &project)
+std::pair<std::shared_ptr<WaveTrack>, ChannelGroup::IntervalIterator<WaveTrack::Interval>>
+SelectedIntervalOfFocusedTrack(AudacityProject &project, bool wholeInterval = true)
 {
    // Note that TrackFocus may change its state as a side effect, defining
    // a track focus if there was none
-   if (auto pWaveTrack =
-      dynamic_cast<WaveTrack *>(TrackFocus::Get(project).Get())) {
+   auto track = TrackFocus::Get(project).Get();
+   if (!track)
+      return {};
+   if (
+      auto pWaveTrack =
+         std::dynamic_pointer_cast<WaveTrack>(track->shared_from_this()))
+   {
       if (FindAffordance(*pWaveTrack)) {
          auto &viewInfo = ViewInfo::Get(project);
          auto intervals = pWaveTrack->Intervals();
 
-         auto it = std::find_if(intervals.begin(), intervals.end(), [&](const auto& interval)
-         {
-            return interval->Start() == viewInfo.selectedRegion.t0() &&
-               interval->End() == viewInfo.selectedRegion.t1();
-         });
+         auto it = std::find_if(
+            intervals.begin(), intervals.end(), [&](const auto& interval) {
+               if (wholeInterval)
+                  return interval->Start() == viewInfo.selectedRegion.t0() &&
+                         interval->End() == viewInfo.selectedRegion.t1();
+               else
+                  return interval->Start() <= viewInfo.selectedRegion.t0() &&
+                         interval->End() > viewInfo.selectedRegion.t0();
+            });
 
          if(it != intervals.end())
             return { pWaveTrack, it };
@@ -397,7 +463,7 @@ const ReservedCommandFlag &StretchedClipIsSelectedFlag()
             const_cast<AudacityProject&>(project));
 
          auto interval = *result.second;
-         return interval != nullptr && !interval->StretchRatioEquals(1.0);
+         return interval != nullptr && interval->HasPitchOrSpeed();
       }
    };
    return flag;
@@ -573,27 +639,18 @@ unsigned WaveTrackAffordanceControls::OnAffordanceClick(const TrackPanelMouseEve
 void WaveTrackAffordanceControls::StartEditSelectedClipName(AudacityProject& project)
 {
    auto [track, it] = SelectedIntervalOfFocusedTrack(project);
-   if(track != FindTrack().get())
+   if(track != FindTrack())
       return;
    StartEditClipName(project, it);
-}
-
-namespace
-{
-void SelectInterval(AudacityProject& project, const WaveTrack::Interval& interval)
-{
-   auto& viewInfo = ViewInfo::Get(project);
-   viewInfo.selectedRegion.setTimes(interval.GetPlayStartTime(), interval.GetPlayEndTime());
-   ProjectHistory::Get(project).ModifyState(false);
-}
 }
 
 void WaveTrackAffordanceControls::StartEditSelectedClipSpeed(
    AudacityProject& project)
 {
-   auto [track, it] = SelectedIntervalOfFocusedTrack(project);
+   constexpr auto wholeInterval = false;
+   auto [track, it] = SelectedIntervalOfFocusedTrack(project, wholeInterval);
 
-   if (track != FindTrack().get())
+   if (track != FindTrack())
       return;
 
    auto interval = *it;
@@ -601,31 +658,25 @@ void WaveTrackAffordanceControls::StartEditSelectedClipSpeed(
    if (!interval)
       return;
 
-   ChangeClipSpeedDialog dlg(*track, *interval, &GetProjectFrame(project));
-
-   if (wxID_OK == dlg.ShowModal())
-   {
-      PushClipSpeedChangedUndoState(project, 100.0 / interval->GetStretchRatio());
-      SelectInterval(project, *interval);
-   }
+   PitchAndSpeedDialog::Get(project).Retarget(track, interval).SetFocus({});
 }
 
 void WaveTrackAffordanceControls::OnRenderClipStretching(
-   AudacityProject& project)
+   AudacityProject& project) const
 {
    const auto [track, it] = SelectedIntervalOfFocusedTrack(project);
 
-   if (track != FindTrack().get())
+   if (track != FindTrack())
       return;
 
    auto interval = *it;
 
-   if (!interval || interval->StretchRatioEquals(1.0))
+   if (!interval || !interval->HasPitchOrSpeed())
       return;
 
-   WaveTrackUtilities::WithStretchRenderingProgress(
+   WaveTrackUtilities::WithClipRenderingProgress(
       [track = track, interval = interval](const ProgressReporter& progress) {
-         track->ApplyStretchRatio(
+         track->ApplyPitchAndSpeed(
             { { interval->GetPlayStartTime(), interval->GetPlayEndTime() } },
             progress);
       },
@@ -634,7 +685,7 @@ void WaveTrackAffordanceControls::OnRenderClipStretching(
    ProjectHistory::Get(project).PushState(
       XO("Rendered time-stretched audio"), XO("Render"));
 
-   SelectInterval(project, *interval);
+   WaveClipUtilities::SelectClip(project, *interval);
 }
 
 std::shared_ptr<TextEditHelper> WaveTrackAffordanceControls::MakeTextEditHelper(const wxString& text)
@@ -649,7 +700,7 @@ auto WaveTrackAffordanceControls::GetMenuItems(
    const wxRect &rect, const wxPoint *pPosition, AudacityProject *pProject)
       -> std::vector<MenuItem>
 {
-   return GetWaveClipMenuItems();
+   return WaveClipUtilities::GetWaveClipMenuItems();
 }
 
 // Register a menu item
@@ -673,7 +724,7 @@ void OnEditClipName(const CommandContext &context)
    }
 }
 
-void OnChangeClipSpeed(const CommandContext& context)
+void OnChangePitchAndSpeed(const CommandContext& context)
 {
    auto& project = context.project;
 
@@ -699,22 +750,62 @@ void OnRenderClipStretching(const CommandContext& context)
    }
 }
 
-using namespace MenuTable;
+void OnPitchShift(
+   const CommandContext& context, bool up)
+{
+   auto [track, it] = SelectedIntervalOfFocusedTrack(context.project);
+   if (!track)
+      return;
+   const auto interval = *it;
+   if (interval->SetCentShift(interval->GetCentShift() + (up ? 100 : -100)))
+      ProjectHistory::Get(context.project)
+         .PushState(
+            XO("Pitch Shift"), XO("Changed Pitch Shift"),
+            UndoPush::CONSOLIDATE);
+}
+
+void OnPitchUp(const CommandContext& context)
+{
+   OnPitchShift(context, true);
+}
+
+void OnPitchDown(const CommandContext& context)
+{
+   OnPitchShift(context, false);
+}
+
+using namespace MenuRegistry;
 
 // Register menu items
 
-AttachedItem sAttachment{ wxT("Edit/Other/Clip"),
+AttachedItem sAttachment{
    Command( L"RenameClip", XXO("&Rename Clip..."),
-      OnEditClipName, SomeClipIsSelectedFlag(), wxT("Ctrl+F2") )
+      OnEditClipName, SomeClipIsSelectedFlag(), wxT("Ctrl+F2") ),
+   wxT("Edit/Other/Clip")
 };
 
-AttachedItem sAttachment2{ wxT("Edit/Other/Clip"),
-   Command( L"ChangeClipSpeed", XXO("Change &Speed..."),
-      OnChangeClipSpeed, SomeClipIsSelectedFlag() )
+AttachedItem sAttachment2 {
+   Command(
+      L"ChangePitchAndSpeed", XXO("&Pitch and Speed..."), OnChangePitchAndSpeed,
+      AlwaysEnabledFlag, Options { wxT("Ctrl+Shift+P") }),
+   wxT("Edit/Other/Clip")
 };
 
-AttachedItem sAttachment3{ wxT("Edit/Other/Clip"),
-   Command( L"RenderClipStretching", XXO("Render Clip S&tretching"),
-      OnRenderClipStretching, StretchedClipIsSelectedFlag())
+AttachedItem sAttachment3{
+   Command( L"RenderPitchAndSpeed", XXO("Render Pitch and &Speed"),
+      OnRenderClipStretching, StretchedClipIsSelectedFlag()),
+   wxT("Edit/Other/Clip")
+};
+
+AttachedItem sAttachment4{
+   Command( L"PitchUp", XXO("Pitch &Up"),
+      OnPitchUp, SomeClipIsSelectedFlag(), Options{ wxT("Alt+Up") }),
+   wxT("Edit/Other/Clip")
+};
+
+AttachedItem sAttachment5{
+   Command( L"PitchDown", XXO("Pitch &Down"),
+      OnPitchDown, SomeClipIsSelectedFlag(), Options{ wxT("Alt+Down") }),
+   wxT("Edit/Other/Clip")
 };
 }

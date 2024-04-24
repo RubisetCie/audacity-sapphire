@@ -11,6 +11,7 @@
 #pragma once
 
 #include "AudioSegmentSampleView.h"
+#include "Observer.h"
 #include "SampleCount.h"
 #include "SampleFormat.h"
 
@@ -35,16 +36,33 @@ public:
    virtual double GetStretchRatio() const = 0;
 };
 
+enum class PitchAndSpeedPreset
+{
+   Default,
+   OptimizeForVoice,
+};
+
 class STRETCHING_SEQUENCE_API ClipInterface : public ClipTimes
 {
 public:
    ~ClipInterface() override;
 
-   virtual AudioSegmentSampleView
-   GetSampleView(size_t iChannel, sampleCount start, size_t length,
+   virtual AudioSegmentSampleView GetSampleView(
+      size_t iChannel, sampleCount start, size_t length,
       bool mayThrow = true) const = 0;
 
    virtual size_t GetWidth() const = 0;
+
+   virtual int GetCentShift() const = 0;
+
+   [[nodiscard]] virtual Observer::Subscription
+   SubscribeToCentShiftChange(std::function<void(int)> cb) = 0;
+
+   virtual PitchAndSpeedPreset GetPitchAndSpeedPreset() const = 0;
+
+   [[nodiscard]] virtual Observer::Subscription
+   SubscribeToPitchAndSpeedPresetChange(
+      std::function<void(PitchAndSpeedPreset)> cb) = 0;
 };
 
 using ClipHolders = std::vector<std::shared_ptr<ClipInterface>>;

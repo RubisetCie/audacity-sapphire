@@ -128,6 +128,7 @@ void AboutDialog::CreateCreditsList()
       XO("%s, graphics");
 
    // The Audacity Team: developers and support
+   AddCredit(wxT("Antons \u010cinakovs"), testerFormat, roleTeamMember);
    AddCredit(wxT("Matthieu Hodgkinson"), developerFormat, roleTeamMember);
    AddCredit(wxT("Peter Jonas"), developerFormat, roleTeamMember);
    AddCredit(wxT("Martin Keary"), roleTeamMember);
@@ -135,12 +136,12 @@ void AboutDialog::CreateCreditsList()
    AddCredit(wxT("Yana Larina"), roleTeamMember);
    AddCredit(wxT("Paul Licameli"), developerFormat, roleTeamMember);
    AddCredit(wxT("Dilson's Pickles"), designerFormat, roleTeamMember);
-   AddCredit(wxT("K. Soze"), developerFormat, roleTeamMember);
    AddCredit(wxT("Anita Sudan"), roleTeamMember);
    AddCredit(wxT("Vitaly Sverchinsky"), developerFormat, roleTeamMember);
    AddCredit(wxT("Dmitry Vedenko"), developerFormat, roleTeamMember);
    AddCredit(wxT("Leo Wattenberg"), designerFormat, roleTeamMember);
    AddCredit(wxT("Jessica Williamson"), designerFormat, roleTeamMember);
+   
    
    // Emeritus: people who were "lead developers" or made an
    // otherwise distinguished contribution, but who are no
@@ -174,6 +175,7 @@ void AboutDialog::CreateCreditsList()
 
    // Contributors
    AddCredit(wxT("Lynn Allan"), developerFormat, roleContributor);
+   AddCredit(wxT("Johan Althoff (teetow)"), designerFormat, roleContributor);
    AddCredit(wxT("Brian Armstrong"), developerFormat, roleContributor);
    AddCredit(wxT("David Avery"), developerFormat, roleContributor);
    AddCredit(wxT("David Bailes"), accessibilityAdvisorFormat, roleContributor);
@@ -221,6 +223,7 @@ void AboutDialog::CreateCreditsList()
    AddCredit(wxT("Benjamin Schwartz"), developerFormat, roleContributor);
    AddCredit(wxT("Cliff Scott"), testerFormat, roleContributor);
    AddCredit(wxT("David R. Sky"), NyquistPluginsFormat, roleContributor);
+   AddCredit(wxT("K. Soze"), developerFormat, roleContributor);
    AddCredit(wxT("Rob Sykes"), developerFormat, roleContributor);
    AddCredit(wxT("Mike Underwood"), developerFormat, roleContributor);
    AddCredit(wxT("Philip Van Baren"), developerFormat, roleContributor);
@@ -241,7 +244,6 @@ void AboutDialog::CreateCreditsList()
    AddCredit(wxT("[[https://libexpat.github.io/|expat]]"), roleLibrary);
    AddCredit(wxT("[[https://xiph.org/flac/|FLAC]]"), roleLibrary);
    AddCredit(wxT("[[http://lame.sourceforge.net/|LAME]]"), roleLibrary);
-   AddCredit(wxT("[[https://www.underbit.com/products/mad/|libmad]]"), roleLibrary);
    AddCredit(wxT("[[http://www.mega-nerd.com/libsndfile/|libsndfile]]"), roleLibrary);
    AddCredit(wxT("[[https://sourceforge.net/p/soxr/wiki/Home/|libsoxr]]"), roleLibrary);
    AddCredit(
@@ -431,7 +433,7 @@ void AboutDialog::PopulateAudacityPage( ShuttleGui & S )
       << wxT("<p><br>&nbsp; &nbsp; ")
       /* i18n-hint Audacity's name substitutes for first and third %s,
        and a "copyright" symbol for the second */
-      << XO("%s software is copyright %s 1999-2023 %s Team.")
+      << XO("%s software is copyright %s 1999-2024 %s Team.")
          .Format(
             Verbatim("<b>%s<sup>&reg;</sup></b>").Format( ProgramName ),
             wxT("&copy;"),

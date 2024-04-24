@@ -18,7 +18,7 @@
 #include "ImportExportCommands.h"
 
 #include "CommandDispatch.h"
-#include "CommandManager.h"
+#include "MenuRegistry.h"
 #include "../CommonCommandFlags.h"
 #include "LoadCommands.h"
 #include "../ProjectFileManager.h"
@@ -33,7 +33,7 @@
 #include "ExportUtils.h"
 #include "ProjectRate.h"
 #include "ExportPluginRegistry.h"
-#include "export/ExportProgressUI.h"
+#include "ExportProgressUI.h"
 
 
 const ComponentInterfaceSymbol ImportCommand::Symbol
@@ -67,13 +67,11 @@ void ImportCommand::PopulateOrExchange(ShuttleGui & S)
 bool ImportCommand::Apply(const CommandContext & context)
 {
    bool wasEmpty = TrackList::Get(context.project).empty();
-   bool success = ProjectFileManager::Get( context.project )
-      .Import(mFileName, false);
+   const bool success =
+      ProjectFileManager::Get(context.project).Import(mFileName, false);
 
    if (success && wasEmpty)
-   {
       SelectUtilities::SelectAllIfNone( context.project );
-   }
 
    return success;
 }
@@ -159,12 +157,11 @@ bool ExportCommand::Apply(const CommandContext & context)
 }
 
 namespace {
-using namespace MenuTable;
+using namespace MenuRegistry;
 
 // Register menu items
 
 AttachedItem sAttachment{
-   wxT("Optional/Extra/Part2/Scriptables2"),
    Items( wxT(""),
       // Note that the PLUGIN_SYMBOL must have a space between words,
       // whereas the short-form used here must not.
@@ -174,6 +171,7 @@ AttachedItem sAttachment{
          CommandDispatch::OnAudacityCommand, AudioIONotBusyFlag() ),
       Command( wxT("Export2"), XXO("Export..."),
          CommandDispatch::OnAudacityCommand, AudioIONotBusyFlag() )
-   )
+   ),
+   wxT("Optional/Extra/Part2/Scriptables2")
 };
 }

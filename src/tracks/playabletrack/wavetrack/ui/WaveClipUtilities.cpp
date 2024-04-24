@@ -9,16 +9,17 @@
 **********************************************************************/
 
 #include "WaveClipUtilities.h"
-
-#include <algorithm>
+#include "PitchAndSpeedDialog.h"
+#include "ProjectHistory.h"
 #include "SampleCount.h"
+#include "UndoManager.h"
+#include "ViewInfo.h"
+#include "WaveTrack.h"
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 
-#include "ProjectHistory.h"
-#include "UndoManager.h"
-
-void findCorrection(
+void WaveClipUtilities::findCorrection(
    const std::vector<sampleCount>& oldWhere, size_t oldLen, size_t newLen,
    double t0, double sampleRate, double stretchRatio, double samplesPerPixel,
    int& oldX0, double& correction)
@@ -44,7 +45,7 @@ void findCorrection(
    {
       // The computation of oldX0 in the other branch
       // may underflow and the assertion would be violated.
-      oldX0 =  oldLen;
+      oldX0 = oldLen;
       correction = 0.0;
    }
    else
@@ -61,42 +62,54 @@ void findCorrection(
    }
 }
 
-void fillWhere(
+void WaveClipUtilities::fillWhere(
    std::vector<sampleCount>& where, size_t len, bool addBias, double correction,
    double t0, double sampleRate, double stretchRatio, double samplesPerPixel)
 {
    // Be careful to make the first value non-negative
    const auto bias = addBias ? .5 : 0.;
    const double w0 = 0.5 + correction + bias + t0 * sampleRate / stretchRatio;
-   where[0] = sampleCount( std::max(0.0, floor(w0)) );
+   where[0] = sampleCount(std::max(0.0, floor(w0)));
    for (decltype(len) x = 1; x < len + 1; x++)
-      where[x] = sampleCount( floor(w0 + double(x) * samplesPerPixel) );
+      where[x] = sampleCount(floor(w0 + double(x) * samplesPerPixel));
 }
 
-std::vector<CommonTrackPanelCell::MenuItem> GetWaveClipMenuItems()
+std::vector<CommonTrackPanelCell::MenuItem>
+WaveClipUtilities::GetWaveClipMenuItems()
 {
-    return {
-        { L"Cut", XO("Cut") },
-        { L"Copy", XO("Copy") },
-        { L"Paste", XO("Paste")  },
-        {},
-        { L"Split", XO("Split Clip") },
-        { L"Join", XO("Join Clips") },
-        { L"TrackMute", XO("Mute/Unmute Track") },
-        {},
-        { L"RenameClip", XO("Rename Clip...") },
-        { L"ChangeClipSpeed", XO("Change Speed...") },
-        { L"RenderClipStretching", XO("Render Clip Stretching") },
-     };;
+   return {
+      { L"Cut", XO("Cut") },
+      { L"Copy", XO("Copy") },
+      { L"Paste", XO("Paste") },
+      {},
+      { L"Split", XO("Split Clip") },
+      { L"Join", XO("Join Clips") },
+      { L"TrackMute", XO("Mute/Unmute Track") },
+      {},
+      { L"RenameClip", XO("Rename Clip...") },
+      { L"ChangePitchAndSpeed", XO("Pitch and Speed...") },
+      { L"RenderPitchAndSpeed", XO("Render Pitch and Speed") },
+   };
+   ;
 }
 
-void PushClipSpeedChangedUndoState(
+void WaveClipUtilities::PushClipSpeedChangedUndoState(
    AudacityProject& project, double speedInPercent)
 {
-    ProjectHistory::Get(project).PushState(
-       /* i18n-hint: This is about changing the clip playback speed, speed is in percent */
-       XO("Changed Clip Speed to %.01f%%").Format(speedInPercent),
-       /* i18n-hint: This is about changing the clip playback speed, speed is in percent */
-       XO("Changed Speed to %.01f%%").Format(speedInPercent),
-       UndoPush::CONSOLIDATE);
+   ProjectHistory::Get(project).PushState(
+      /* i18n-hint: This is about changing the clip playback speed, speed is in
+         percent */
+      XO("Changed Clip Speed to %.01f%%").Format(speedInPercent),
+      /* i18n-hint: This is about changing the clip playback speed, speed is in
+         percent */
+      XO("Changed Speed to %.01f%%").Format(speedInPercent),
+      UndoPush::CONSOLIDATE);
+}
+
+void WaveClipUtilities::SelectClip(
+   AudacityProject& project, const WaveTrack::Interval& clip)
+{
+   auto& viewInfo = ViewInfo::Get(project);
+   viewInfo.selectedRegion.setTimes(
+      clip.GetPlayStartTime(), clip.GetPlayEndTime());
 }

@@ -57,7 +57,6 @@
 #include "Project.h"
 #include "ProjectAudioIO.h"
 #include "../ProjectAudioManager.h"
-#include "../ProjectSettings.h"
 #include "ProjectStatus.h"
 #include "../ProjectWindow.h"
 #include "../SelectUtilities.h"
@@ -654,7 +653,7 @@ void ControlToolBar::OnRewind(wxCommandEvent & WXUNUSED(evt))
    AudacityProject *p = &mProject;
    {
       ProjectAudioManager::Get( *p ).StopIfPaused();
-      ProjectWindow::Get( *p ).Rewind(mRewind->WasShiftDown());
+      Viewport::Get(*p).ScrollToStart(mRewind->WasShiftDown());
    }
 }
 
@@ -667,7 +666,7 @@ void ControlToolBar::OnFF(wxCommandEvent & WXUNUSED(evt))
 
    {
       ProjectAudioManager::Get( *p ).StopIfPaused();
-      ProjectWindow::Get( *p ).SkipEnd(mFF->WasShiftDown());
+      Viewport::Get(*p).ScrollToEnd(mFF->WasShiftDown());
    }
 }
 
@@ -677,7 +676,7 @@ registeredStatusWidthFunction{
    []( const AudacityProject &, StatusBarField field )
       -> ProjectStatus::StatusWidthResult
    {
-      if ( field == stateStatusBarField ) {
+      if ( field == StateStatusBarField() ) {
          TranslatableStrings strings;
          for ( auto pString :
             { &sStatePlay, &sStateStop, &sStateRecord } )
@@ -720,7 +719,7 @@ TranslatableString ControlToolBar::StateForStatusBar()
 void ControlToolBar::UpdateStatusBar()
 {
    ProjectStatus::Get( mProject ).Set(
-      StateForStatusBar(), stateStatusBarField
+      StateForStatusBar(), StateStatusBarField()
    );
 }
 
@@ -760,11 +759,7 @@ void ControlToolBar::StartScrolling()
          // If you overdub, you may want to anticipate some context in existing tracks,
          // so center the head.  If not, put it rightmost to display as much wave as we can.
          bool duplex;
-#ifdef EXPERIMENTAL_DA
-         gPrefs->Read(wxT("/AudioIO/Duplex"), &duplex, false);
-#else
          gPrefs->Read(wxT("/AudioIO/Duplex"), &duplex, true);
-#endif
          if (duplex) {
             // See if there is really anything being overdubbed
             if (gAudioIO->GetNumPlaybackChannels() == 0)

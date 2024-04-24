@@ -40,7 +40,7 @@ enum class PlayMode : int {
 
 struct TransportSequences;
 
-enum StatusBarField : int;
+using StatusBarField = Identifier;
 enum class ProjectFileIOMessage : int;
 
 //! Notification, after recording has stopped, when dropouts have been detected
@@ -159,7 +159,7 @@ private:
 
    void OnCheckpointFailure(ProjectFileIOMessage);
 
-   Observer::Subscription mCheckpointFailureSubcription;
+   Observer::Subscription mCheckpointFailureSubscription;
    AudacityProject &mProject;
 
    PlayMode mLastPlayMode{ PlayMode::normalPlay };
@@ -194,7 +194,7 @@ struct PropertiesOfSelected
 AUDACITY_DLL_API
 PropertiesOfSelected GetPropertiesOfSelected(const AudacityProject &proj);
 
-#include "commands/CommandFlag.h"
+#include "CommandFlag.h"
 
 extern AUDACITY_DLL_API const ReservedCommandFlag
    &CanStopAudioStreamFlag();
