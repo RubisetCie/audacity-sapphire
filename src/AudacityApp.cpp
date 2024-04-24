@@ -14,11 +14,7 @@
 It handles initialization and termination by subclassing wxApp.
 
 *//*******************************************************************/
-
-
 #include "AudacityApp.h"
-
-
 
 #if 0
 // This may be used to debug memory leaks.
@@ -81,7 +77,7 @@ It handles initialization and termination by subclassing wxApp.
 #include "widgets/ASlider.h"
 #include "Journal.h"
 #include "Languages.h"
-#include "Menus.h"
+#include "MenuCreator.h"
 #include "PathList.h"
 #include "PluginManager.h"
 #include "Project.h"
@@ -101,6 +97,7 @@ It handles initialization and termination by subclassing wxApp.
 #include "Track.h"
 #include "prefs/PrefsDialog.h"
 #include "Theme.h"
+#include "Viewport.h"
 #include "PlatformCompatibility.h"
 #include "AutoRecoveryDialog.h"
 #include "SplashDialog.h"
@@ -164,6 +161,7 @@ It handles initialization and termination by subclassing wxApp.
 
 #include "ExportPluginRegistry.h"
 #include "SettingsWX.h"
+#include "prefs/EffectsPrefs.h"
 
 #ifdef HAS_CUSTOM_URL_HANDLING
 #include "URLSchemesRegistry.h"
@@ -250,18 +248,8 @@ void PopulatePreferences()
    // User requested that the preferences be completely reset
    if (resetPrefs)
    {
-      // pop up a dialogue
-      auto prompt = XO(
-"Reset Preferences?\n\nThis is a one-time question, after an 'install' where you asked to have the Preferences reset.");
-      int action = AudacityMessageBox(
-         prompt,
-         XO("Reset Audacity Preferences"),
-         wxYES_NO, NULL);
-      if (action == wxYES)   // reset
-      {
-         ResetPreferences();
-         writeLang = true;
-      }
+      ResetPreferences();
+      writeLang = true;
    }
 
    // Save the specified language
@@ -420,6 +408,12 @@ void PopulatePreferences()
    {
       if (gPrefs->Exists(wxT("/GUI/ToolBars")))
          gPrefs->DeleteGroup(wxT("/GUI/ToolBars"));
+      if (gPrefs->Exists("/GUI/ShowSplashScreen"))
+         gPrefs->DeleteEntry("/GUI/ShowSplashScreen");
+   }
+
+   if (std::pair { vMajor, vMinor } < std::pair { 3, 5 })
+   {
       if (gPrefs->Exists("/GUI/ShowSplashScreen"))
          gPrefs->DeleteEntry("/GUI/ShowSplashScreen");
    }
@@ -718,14 +712,22 @@ class GnomeShutdown
  public:
    GnomeShutdown()
    {
+#ifdef __OpenBSD__
+      const char *libgnomeui = "libgnomeui-2.so";
+      const char *libgnome = "libgnome-2.so";
+#else
+      const char *libgnomeui = "libgnomeui-2.so.0";
+      const char *libgnome = "libgnome-2.so.0";
+#endif
+
       mArgv[0].reset(strdup("Audacity"));
 
-      mGnomeui = dlopen("libgnomeui-2.so.0", RTLD_NOW);
+      mGnomeui = dlopen(libgnomeui, RTLD_NOW);
       if (!mGnomeui) {
          return;
       }
 
-      mGnome = dlopen("libgnome-2.so.0", RTLD_NOW);
+      mGnome = dlopen(libgnome, RTLD_NOW);
       if (!mGnome) {
          return;
       }
@@ -1194,8 +1196,7 @@ bool AudacityApp::OnExceptionInMainLoop()
 
             // Forget pending changes in the TrackList
             TrackList::Get( *pProject ).ClearPendingTracks();
-
-            ProjectWindow::Get( *pProject ).RedrawProject();
+            Viewport::Get(*pProject).Redraw();
          }
 
          // Give the user an alert
@@ -1574,7 +1575,7 @@ bool AudacityApp::InitPart2()
 
    //Search for the new plugins
    std::vector<wxString> failedPlugins;
-   if(!playingJournal)
+   if(!playingJournal && !SkipEffectsScanAtStartup.Read())
    {
       auto newPlugins = PluginManager::Get().CheckPluginUpdates();
       if(!newPlugins.empty())
@@ -1625,7 +1626,7 @@ bool AudacityApp::InitPart2()
       GetPreferencesVersion(vMajorInit, vMinorInit, vMicroInit);
       if (vMajorInit != AUDACITY_VERSION || vMinorInit != AUDACITY_RELEASE
          || vMicroInit != AUDACITY_REVISION) {
-         CommandManager::Get(*project).RemoveDuplicateShortcuts();
+         MenuCreator::Get(*project).RemoveDuplicateShortcuts();
       }
       //
       // Auto-recovery
@@ -1737,6 +1738,8 @@ bool AudacityApp::InitPart2()
    }
 #endif
 
+   HandleAppInitialized();
+
    return TRUE;
 }
 
@@ -1754,6 +1757,8 @@ void AudacityApp::OnIdle( wxIdleEvent &evt )
 {
    evt.Skip();
    try {
+      HandleAppIdle();
+
       if ( Journal::Dispatch() )
          evt.RequestMore();
    }
@@ -2432,6 +2437,8 @@ int AudacityApp::OnExit()
    {
       Dispatch();
    }
+
+   HandleAppClosing();
 
    Importer::Get().Terminate();
 

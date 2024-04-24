@@ -49,6 +49,28 @@ public:
       return stretchRatio;
    }
 
+   int GetCentShift() const override
+   {
+      return 0;
+   }
+
+   Observer::Subscription
+   SubscribeToCentShiftChange(std::function<void(int)> cb) override
+   {
+      return {};
+   }
+
+   PitchAndSpeedPreset GetPitchAndSpeedPreset() const override
+   {
+      return PitchAndSpeedPreset::Default;
+   }
+
+   Observer::Subscription SubscribeToPitchAndSpeedPresetChange(
+      std::function<void(PitchAndSpeedPreset)> cb) override
+   {
+      return {};
+   }
+
 public:
    double stretchRatio = 1.;
    double playStartTime = 0.;

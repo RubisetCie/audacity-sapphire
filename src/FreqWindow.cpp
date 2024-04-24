@@ -45,6 +45,7 @@ the mouse around.
 #include <wx/dcmemory.h>
 #include <wx/font.h>
 #include <wx/file.h>
+#include <wx/frame.h>
 #include <wx/scrolbar.h>
 #include <wx/slider.h>
 #include <wx/statbmp.h>
@@ -68,7 +69,7 @@ the mouse around.
 #include "PitchName.h"
 #include "Prefs.h"
 #include "Project.h"
-#include "ProjectWindow.h"
+#include "ProjectWindows.h"
 #include "SelectFile.h"
 #include "ShuttleGui.h"
 #include "Theme.h"
@@ -85,7 +86,6 @@ the mouse around.
 #include "widgets/LogarithmicUpdater.h"
 #include "widgets/LinearDBFormat.h"
 #include "widgets/RealFormat.h"
-#include "widgets/VetoDialogHook.h"
 
 #if wxUSE_ACCESSIBILITY
 #include "WindowAccessible.h"
@@ -628,7 +628,7 @@ bool FrequencyPlotDialog::GetAudio()
       {
          using namespace BasicUI;
          ShowMessageBox(
-            XO("Audio could not be analyzed. This may be due to a stretched clip.\nTry resetting any stretched clips, or mixing and rendering the tracks before analyzing"),
+            XO("Audio could not be analyzed. This may be due to a stretched or pitch-shifted clip.\nTry resetting any stretched clips, or mixing and rendering the tracks before analyzing"),
             MessageBoxOptions {}.Caption(XO("Error")).IconStyle(Icon::Error));
          mData.reset();
          mDataLen = 0;
@@ -1219,15 +1219,15 @@ void FreqPlot::OnMouseEvent(wxMouseEvent & event)
 }
 
 // Remaining code hooks this add-on into the application
-#include "commands/CommandContext.h"
-#include "commands/CommandManager.h"
+#include "CommandContext.h"
+#include "CommandManager.h"
 #include "ProjectWindows.h"
 
 namespace {
 
 AttachedWindows::RegisteredFactory sFrequencyWindowKey{
    []( AudacityProject &parent ) -> wxWeakRef< wxWindow > {
-      auto &window = ProjectWindow::Get( parent );
+      auto &window = GetProjectFrame(parent);
       return safenew FrequencyPlotDialog(
          &window, -1, parent, FrequencyAnalysisTitle,
          wxPoint{ 150, 150 }
@@ -1239,12 +1239,10 @@ AttachedWindows::RegisteredFactory sFrequencyWindowKey{
 void OnPlotSpectrum(const CommandContext &context)
 {
    auto &project = context.project;
-   CommandManager::Get(project).RegisterLastAnalyzer(context);  //Register Plot Spectrum as Last Analyzer
+   CommandManager::Get(project).RegisterLastAnalyzer(context);
    auto freqWindow = &GetAttachedWindows(project)
       .Get< FrequencyPlotDialog >( sFrequencyWindowKey );
 
-   if( VetoDialogHook::Call( freqWindow ) )
-      return;
    freqWindow->Show(true);
    freqWindow->Raise();
    freqWindow->SetFocus();
@@ -1252,11 +1250,12 @@ void OnPlotSpectrum(const CommandContext &context)
 
 // Register that menu item
 
-using namespace MenuTable;
-AttachedItem sAttachment{ wxT("Analyze/Analyzers/Windows"),
+using namespace MenuRegistry;
+AttachedItem sAttachment{
    Command( wxT("PlotSpectrum"), XXO("Plot Spectrum..."),
       OnPlotSpectrum,
-      AudioIONotBusyFlag() | WaveTracksSelectedFlag() | TimeSelectedFlag() )
+      AudioIONotBusyFlag() | WaveTracksSelectedFlag() | TimeSelectedFlag() ),
+   wxT("Analyze/Analyzers/Windows")
 };
 
 }

@@ -49,6 +49,7 @@
 #include "TrackPanel.h"
 #include "TrackUtilities.h"
 #include "UndoManager.h"
+#include "Viewport.h"
 #include "WaveTrack.h"
 
 #include "widgets/AButton.h"
@@ -63,7 +64,7 @@
    #include "../images/AudacityLogo48x48.xpm"
 #endif
 
-#include "commands/CommandManager.h"
+#include "MenuCreator.h"
 
 #include <numeric> // accumulate
 
@@ -296,17 +297,15 @@ MixerTrackCluster::MixerTrackCluster(wxWindow* parent,
                   *(mMixerBoard->mImageSoloDisabled),
                   true); // toggle button
    mToggleButton_Solo->SetName(_("Solo"));
-   bool bSoloNone = (TracksBehaviorsSolo.ReadEnum() == SoloBehaviorNone);
-   mToggleButton_Solo->Show(!bSoloNone);
 
 
    // meter
-   ctrlPos.y += (bSoloNone ? 0 : MUTE_SOLO_HEIGHT) + kDoubleInset;
+   ctrlPos.y += MUTE_SOLO_HEIGHT + kDoubleInset;
    const int nMeterHeight =
       nGainSliderHeight -
       (MUSICAL_INSTRUMENT_HEIGHT_AND_WIDTH + kDoubleInset) -
       (PAN_HEIGHT + kDoubleInset) -
-      (MUTE_SOLO_HEIGHT + (bSoloNone ? 0 : MUTE_SOLO_HEIGHT) + kDoubleInset);
+      (MUTE_SOLO_HEIGHT + MUTE_SOLO_HEIGHT + kDoubleInset);
    ctrlSize.Set(kRightSideStackWidth, nMeterHeight);
 
    mMeter.Release();
@@ -395,14 +394,10 @@ void MixerTrackCluster::HandleResize() // For wxSizeEvents, update gain slider a
    mSlider_Velocity->SetSize(-1, nGainSliderHeight);
 #endif
 
-   bool bSoloNone = TracksBehaviorsSolo.ReadEnum() == SoloBehaviorNone;
-
-   mToggleButton_Solo->Show(!bSoloNone);
-
    const int nRequiredHeightAboveMeter =
       MUSICAL_INSTRUMENT_HEIGHT_AND_WIDTH + kDoubleInset +
       PAN_HEIGHT + kDoubleInset +
-      MUTE_SOLO_HEIGHT + (bSoloNone ? 0 : MUTE_SOLO_HEIGHT) + kDoubleInset;
+      MUTE_SOLO_HEIGHT + MUTE_SOLO_HEIGHT + kDoubleInset;
    const int nMeterY =
       kDoubleInset + // margin at top
       TRACK_NAME_HEIGHT + kDoubleInset +
@@ -793,7 +788,7 @@ void MixerTrackCluster::OnButton_Mute(wxCommandEvent& WXUNUSED(event))
 
    // Update the TrackPanel correspondingly.
    if (TracksBehaviorsSolo.ReadEnum() == SoloBehaviorSimple)
-      ProjectWindow::Get( *mProject ).RedrawProject();
+      Viewport::Get(*mProject).Redraw();
    else
       // Update only the changed track.
       TrackPanel::Get( *mProject ).RefreshTrack(mTrack.get());
@@ -808,7 +803,7 @@ void MixerTrackCluster::OnButton_Solo(wxCommandEvent& WXUNUSED(event))
 
    // Update the TrackPanel correspondingly.
    // Bug 509: Must repaint all, as many tracks can change with one Solo change.
-   ProjectWindow::Get( *mProject ).RedrawProject();
+   Viewport::Get(*mProject).Redraw();
 }
 
 
@@ -1497,9 +1492,8 @@ void MixerBoardFrame::OnSize(wxSizeEvent & WXUNUSED(event))
 
 void MixerBoardFrame::OnKeyEvent(wxKeyEvent & event)
 {
-   AudacityProject *project = mMixerBoard->mProject;
-   auto &commandManager = CommandManager::Get( *project );
-   commandManager.FilterKeyEvent(project, event, true);
+   if (auto project = mMixerBoard->mProject)
+      MenuCreator::FilterKeyEvent(*project, event, true);
 }
 
 void MixerBoardFrame::Recreate( AudacityProject *pProject )
@@ -1532,7 +1526,7 @@ void MixerBoardFrame::SetWindowTitle()
 }
 
 // Remaining code hooks this add-on into the application
-#include "commands/CommandContext.h"
+#include "CommandContext.h"
 
 namespace {
 
@@ -1570,10 +1564,11 @@ void OnMixerBoard(const CommandContext &context)
 
 // Register that menu item
 
-using namespace MenuTable;
-AttachedItem sAttachment{ wxT("View/Windows"),
+using namespace MenuRegistry;
+AttachedItem sAttachment{
    Command( wxT("MixerBoard"), XXO("&Mixer"), OnMixerBoard,
-      PlayableTracksExistFlag())
+      PlayableTracksExistFlag()),
+   wxT("View/Windows")
 };
 
 }

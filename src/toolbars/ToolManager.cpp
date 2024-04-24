@@ -27,7 +27,7 @@
 
 #include "ToolManager.h"
 
-#include "../commands/CommandContext.h"
+#include "CommandContext.h"
 
 // For compilers that support precompilation, includes "wx/wx.h".
 #include <wx/wxprec.h>
@@ -50,8 +50,8 @@
 
 #include "AColor.h"
 #include "AllThemeResources.h"
+#include "CommandManager.h"
 #include "ImageManipulation.h"
-#include "Menus.h"
 #include "Prefs.h"
 #include "Project.h"
 #include "ProjectWindows.h"
@@ -474,7 +474,7 @@ void ToolManager::CreateWindows()
 
    wxEvtHandler::AddFilter(this);
 
-   mMenuManagerSubscription = MenuManager::Get(*mParent)
+   mMenuManagerSubscription = CommandManager::Get(*mParent)
       .Subscribe(*this, &ToolManager::OnMenuUpdate);
 }
 
@@ -541,8 +541,7 @@ static struct DefaultConfigEntry {
    { wxT("PlayMeter"),         wxT("RecordMeter"),     {}                },
 
    // start another top dock row
-   { wxT("Scrub"),             {},                     wxT("Control")         },
-   { wxT("Device"),            wxT("Scrub"),           wxT("Control")         },
+   { wxT("Device"),             {},                     wxT("Control")         },
 
    // Hidden by default in top dock
    { wxT("CombinedMeter"),     {},                     {}                },
@@ -553,12 +552,8 @@ static struct DefaultConfigEntry {
    { wxT("Time"),              wxT("Snapping"),        {}                },
    { wxT("Selection"),         wxT("Time"),            {}                },
 
-// DA: Transcription Toolbar not docked, by default.
-#ifdef EXPERIMENTAL_DA
-   { wxT("Transcription"),     {},                     {}                },
-#else
    { wxT("Transcription"),     wxT("Selection"),       {}                },
-#endif
+
 
    // Hidden by default in bottom dock
    { wxT("SpectralSelection"), {},                     {}                },
@@ -917,7 +912,8 @@ void ToolManager::ReadConfig()
    {
       const auto &ndx = entry.barID;
       const auto bar = GetToolBar(ndx);
-      bar->SetPreferredNeighbors(entry.rightOf, entry.below);
+      if (bar != nullptr)
+         bar->SetPreferredNeighbors(entry.rightOf, entry.below);
    }
 
    if (!someFound)
@@ -1538,7 +1534,7 @@ void ToolManager::ModifyAllProjectToolbarMenus()
    }
 }
 
-#include "../commands/CommandManager.h"
+#include "CommandManager.h"
 void ToolManager::ModifyToolbarMenus(AudacityProject &project)
 {
    // Refreshes can occur during shutdown and the toolmanager may already
@@ -1556,8 +1552,10 @@ void ToolManager::ModifyToolbarMenus(AudacityProject &project)
    bool active = SyncLockTracks.Read();
    SyncLockState::Get(project).SetSyncLock(active);
 
-   CommandManager::Get( project ).UpdateCheckmarks( project );
+   CommandManager::Get(project).UpdateCheckmarks();
 }
+
+using namespace MenuRegistry;
 
 AttachedToolBarMenuItem::AttachedToolBarMenuItem(
    Identifier id, const CommandID &name, const TranslatableString &label_in,
@@ -1565,16 +1563,17 @@ AttachedToolBarMenuItem::AttachedToolBarMenuItem(
    std::vector< Identifier > excludeIDs
 )  : mId{ id }
    , mAttachedItem{
-      Registry::Placement{ wxT("View/Other/Toolbars/Toolbars/Other"), hint },
-      (  MenuTable::FinderScope(
+      (  MenuRegistry::FinderScope(
             [this](AudacityProject &) -> CommandHandlerObject&
                { return *this; } ),
-         MenuTable::Command( name, label_in,
+         MenuRegistry::Command( name, label_in,
             &AttachedToolBarMenuItem::OnShowToolBar,
             AlwaysEnabledFlag,
-            CommandManager::Options{}.CheckTest( [id](AudacityProject &project){
+            Options{}.CheckTest( [id](AudacityProject &project){
                auto &toolManager = ToolManager::Get( project );
-               return toolManager.IsVisible( id ); } ) ) ) }
+               return toolManager.IsVisible( id ); } ) ) ),
+      Registry::Placement{ wxT("View/Other/Toolbars/Toolbars/Other"), hint }
+   }
    , mExcludeIds{ std::move( excludeIDs ) }
 {}
 

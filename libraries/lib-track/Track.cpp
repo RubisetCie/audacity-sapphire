@@ -83,18 +83,11 @@ void Track::SetSelected(bool s)
    }
 }
 
-void Track::EnsureVisible( bool modifyState )
-{
-   auto pList = mList.lock();
-   if (pList)
-      pList->EnsureVisibleEvent(SharedPointer(), modifyState);
-}
-
-TrackListHolder Track::Duplicate() const
+TrackListHolder Track::Duplicate(DuplicateOptions options) const
 {
    assert(IsLeader());
    // invoke "virtual constructor" to copy track object proper:
-   auto result = Clone();
+   auto result = Clone(options.backup);
 
    auto iter = TrackList::Channels(*result->begin()).begin();
    const auto copyOne = [&](const Track *pChannel){
@@ -482,16 +475,6 @@ void TrackList::DataEvent(
          doQueueEvent(channel->shared_from_this());
    else
       doQueueEvent(pTrack);
-}
-
-void TrackList::EnsureVisibleEvent(
-   const std::shared_ptr<Track> &pTrack, bool modifyState )
-{
-   // Substitute leader track
-   const auto pLeader = *Find(pTrack.get());
-   QueueEvent({ TrackListEvent::TRACK_REQUEST_VISIBLE,
-      pLeader ? pLeader->SharedPointer() : nullptr,
-      static_cast<int>(modifyState) });
 }
 
 void TrackList::PermutationEvent(TrackNodePointer node)
@@ -1018,7 +1001,7 @@ TrackList::RegisterPendingChangedTrack(Updater updater, Track *src)
    assert(GetOwner()); // which implies mPendingUpdates is not null
    assert(src->IsLeader());
    
-   auto tracks = src->Clone(); // not duplicate
+   auto tracks = src->Clone(false); // not duplicate
    assert(src->NChannels() == tracks->NChannels());
    {
       // Share the satellites with the original, though they do not point back

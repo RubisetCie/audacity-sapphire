@@ -96,10 +96,45 @@ struct WAVE_TRACK_API WaveClipListener
    virtual void Invalidate() = 0;
 };
 
+struct CentShiftChange
+{
+   explicit CentShiftChange(int newValue)
+       : newValue(newValue)
+   {
+   }
+   const int newValue;
+};
+
+struct PitchAndSpeedPresetChange
+{
+   explicit PitchAndSpeedPresetChange(PitchAndSpeedPreset newValue)
+       : newValue(newValue)
+   {
+   }
+   const PitchAndSpeedPreset newValue;
+};
+
+struct StretchRatioChange
+{
+   explicit StretchRatioChange(double newValue)
+       : newValue(newValue)
+   {
+   }
+   const double newValue;
+};
+
+struct WaveClipDtorCalled
+{
+};
+
 class WAVE_TRACK_API WaveClip final :
     public ClipInterface,
     public XMLTagHandler,
-    public ClientData::Site<WaveClip, WaveClipListener>
+    public ClientData::Site<WaveClip, WaveClipListener>,
+    public Observer::Publisher<CentShiftChange>,
+    public Observer::Publisher<PitchAndSpeedPresetChange>,
+    public Observer::Publisher<StretchRatioChange>,
+    public Observer::Publisher<WaveClipDtorCalled>
 {
 private:
    // It is an error to copy a WaveClip without specifying the
@@ -160,19 +195,35 @@ public:
 
    // Set rate without resampling. This will change the length of the clip
    void SetRate(int rate);
+   void SetRawAudioTempo(double tempo);
 
    //! Stretches from left to the absolute time (if in expected range)
    void StretchLeftTo(double to);
    //! Sets from the right to the absolute time (if in expected range)
    void StretchRightTo(double to);
+   void StretchBy(double ratio);
 
    double GetStretchRatio() const override;
 
    //! Checks for stretch-ratio equality, accounting for rounding errors.
    //! @{
-   bool HasEqualStretchRatio(const WaveClip& other) const;
-   bool StretchRatioEquals(double value) const;
+   bool HasEqualPitchAndSpeed(const WaveClip& other) const;
+   bool HasPitchOrSpeed() const;
    //! @}
+
+   /*
+    * @post `true` if `TimeAndPitchInterface::MinCent <= cents && cents <=
+    * TimeAndPitchInterface::MaxCent`
+    */
+   bool SetCentShift(int cents);
+   int GetCentShift() const override;
+   [[nodiscard]] Observer::Subscription
+   SubscribeToCentShiftChange(std::function<void(int)> cb) override;
+
+   void SetPitchAndSpeedPreset(PitchAndSpeedPreset preset);
+   PitchAndSpeedPreset GetPitchAndSpeedPreset() const override;
+   [[nodiscard]] Observer::Subscription SubscribeToPitchAndSpeedPresetChange(
+      std::function<void(PitchAndSpeedPreset)> cb) override;
 
    // Resample clip. This also will set the rate, but without changing
    // the length of the clip
@@ -229,6 +280,8 @@ public:
    void TrimLeft(double deltaTime);
    //! Moves play end position by deltaTime
    void TrimRight(double deltaTime);
+   //! Same as `TrimRight`, but expressed as quarter notes
+   void TrimQuarternotesFromRight(double quarters);
 
    //! Sets the the left trimming to the absolute time (if that is in bounds)
    void TrimLeftTo(double to);
@@ -575,7 +628,7 @@ private:
    // Always gives non-negative answer, not more than sample sequence length
    // even if t0 really falls outside that range
    sampleCount TimeToSequenceSamples(double t) const;
-
+   bool StretchRatioEquals(double value) const;
    sampleCount GetNumSamples() const;
    SampleFormats GetSampleFormats() const;
    const SampleBlockFactoryPtr &GetFactory();
@@ -607,6 +660,9 @@ private:
    double mTrimRight { 0 };
    //! @}
 
+   PitchAndSpeedPreset mPitchAndSpeedPreset { PitchAndSpeedPreset::Default };
+   int mCentShift { 0 };
+
    // Used in GetStretchRatio which computes the factor, by which the sample
    // interval is multiplied, to get a realtime duration.
    double mClipStretchRatio = 1.;
@@ -620,8 +676,8 @@ private:
    /*!
     @invariant `mSequences.size() > 0`
     @invariant all are non-null
-    @invariant all sequences have the same lengths, append buffer lengths,
-      sample formats, and sample block factory
+    @invariant all sequences have the same sample formats, and sample block
+    factory
     @invariant all cutlines have the same width
     */
    std::vector<std::unique_ptr<Sequence>> mSequences;

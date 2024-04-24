@@ -243,7 +243,9 @@ TagsEditorDialog::TagsEditorDialog(wxWindow * parent,
    Fit();
    Center();
    wxSize sz = GetSize();
-   SetSizeHints(sz.x, std::min(sz.y, 600));
+   const auto maxHeight = std::max(1, wxDisplay().GetGeometry().GetHeight() - 100);
+   const auto minHeight = std::min({ sz.y, 600, maxHeight });
+   SetSizeHints(sz.x, minHeight, wxDefaultCoord, maxHeight);
 
    // Restore the original tags because TransferDataToWindow() will be called again
    for(unsigned i = 0; i < mEditTags.size(); ++i)
@@ -1024,8 +1026,8 @@ bool TagsEditorDialog::EditProjectMetadata(AudacityProject &project,
 }
 
 // Attach menu item
-#include "commands/CommandContext.h"
-#include "commands/CommandManager.h"
+#include "CommandContext.h"
+#include "MenuRegistry.h"
 #include "CommonCommandFlags.h"
 
 namespace {
@@ -1036,11 +1038,11 @@ void OnEditMetadata(const CommandContext &context)
       XO("Edit Metadata Tags"), XO("Metadata Tags"));
 }
 
-using namespace MenuTable;
+using namespace MenuRegistry;
 
 AttachedItem sAttachment{
-   wxT("Edit/Other"),
    Command( wxT("EditMetaData"), XXO("&Metadata Editor"), OnEditMetadata,
-      AudioIONotBusyFlag() )
+      AudioIONotBusyFlag() ),
+   wxT("Edit/Other")
 };
 }

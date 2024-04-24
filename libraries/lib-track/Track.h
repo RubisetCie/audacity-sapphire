@@ -34,7 +34,6 @@
 
 class wxTextFile;
 class Track;
-class ProjectSettings;
 class AudacityProject;
 
 using TrackArray = std::vector< Track* >;
@@ -297,12 +296,28 @@ private:
 
    void Init(const Track &orig);
 
+   //! Choices when duplicating a track
+   struct DuplicateOptions {
+      DuplicateOptions()
+         : backup{ false }
+      {}
+
+      //! passed to Track::Clone()
+      bool backup;
+
+      // Supporting chain-call idiom
+      DuplicateOptions Backup() &&
+      { backup = true; return std::move(*this); }
+   };
+
    //! public nonvirtual duplication function that invokes Clone()
    /*!
     @pre `IsLeader()`
     @post result: `NChannels() == result->NChannels()`
     */
-   virtual TrackListHolder Duplicate() const;
+   virtual TrackListHolder Duplicate(DuplicateOptions = {}) const;
+
+   void ReparentAllAttachments();
 
    //! Name is always the same for all channels of a group
    const wxString &GetName() const;
@@ -311,14 +326,6 @@ private:
    //! Selectedness is always the same for all channels of a group
    bool GetSelected() const;
    virtual void SetSelected(bool s);
-
-   /*!
-    The owning TrackList emits a TRACK_REQUEST_VISIBLE event with the leader of
-    this track
-    The argument tells whether the last undo history state should be
-    updated for the appearance change
-    */
-   void EnsureVisible(bool modifyState = false);
 
 public:
 
@@ -400,9 +407,11 @@ private:
     @pre `!unstretchInterval.has_value() ||
        unstretchInterval->first < unstretchInterval->second`
     @pre `IsLeader()`
+    @param backup whether the duplication is for backup purposes while opening
+    a project, instead of other editing operations
     @post result: `NChannels() == result->NChannels()`
     */
-   virtual TrackListHolder Clone() const = 0;
+   virtual TrackListHolder Clone(bool backup) const = 0;
 
    template<typename T>
       friend std::enable_if_t< std::is_pointer_v<T>, T >
@@ -942,9 +951,6 @@ struct TrackListEvent
       //! Posted when certain fields of a track change.
       TRACK_DATA_CHANGE,
 
-      //! Posted when a track needs to be scrolled into view; leader track only
-      TRACK_REQUEST_VISIBLE,
-
       //! Posted when tracks are reordered but otherwise unchanged.
       /*! mpTrack points to the moved track that is earliest in the New ordering. */
       PERMUTED,
@@ -1399,8 +1405,6 @@ private:
    void PermutationEvent(TrackNodePointer node);
    void DataEvent(
       const std::shared_ptr<Track> &pTrack, bool allChannels, int code );
-   void EnsureVisibleEvent(
-      const std::shared_ptr<Track> &pTrack, bool modifyState );
    void DeletionEvent(std::weak_ptr<Track> node, bool duringReplace);
    void AdditionEvent(TrackNodePointer node);
    void ResizingEvent(TrackNodePointer node);

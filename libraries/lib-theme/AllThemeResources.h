@@ -166,9 +166,7 @@ from there.  Audacity will look for a file called "Pause.png".
 
    SET_THEME_FLAGS(  resFlagNone  );
    DEFINE_IMAGE( bmpPlayPointer, wxImage( 20, 20 ), wxT("PlayPointer"));
-   DEFINE_IMAGE( bmpPlayPointerPinned, wxImage( 20, 20 ), wxT("PlayPointerPinned"));
    DEFINE_IMAGE( bmpRecordPointer, wxImage( 20, 20 ), wxT("RecordPointer"));
-   DEFINE_IMAGE( bmpRecordPointerPinned, wxImage( 20, 20 ), wxT("RecordPointerPinned"));
    DEFINE_IMAGE( bmpGrabberDropLoc, wxImage( 20, 20 ), wxT("GrabberDropLoc"));
    DEFINE_IMAGE( bmpSliderThumb, wxImage( 20, 20 ), wxT("SliderThumb"));
    DEFINE_IMAGE( bmpSliderThumbHilited, wxImage( 20, 20 ), wxT("SliderThumbHilited"));
@@ -254,6 +252,11 @@ from there.  Audacity will look for a file called "Pause.png".
    DEFINE_IMAGE( bmpHButtonDown, wxImage( 22, 22 ), wxT("HButtonDown"))
    DEFINE_IMAGE( bmpHButtonDisabled, wxImage( 22, 22 ), wxT("HButtonDisabled"))
 
+   SET_THEME_FLAGS(  resFlagNewLine  );
+   DEFINE_IMAGE(pitchUpIndicator, wxImage(12, 12), wxT("PitchUpIndicator"));
+   DEFINE_IMAGE(pitchDownIndicator, wxImage(12, 12), wxT("PitchDownIndicator"));
+   DEFINE_IMAGE(speedIndicator, wxImage(12, 12), wxT("speedIndicator"));
+
    //SET_THEME_FLAGS(  resFlagNewLine  );
 
 
@@ -269,6 +272,8 @@ from there.  Audacity will look for a file called "Pause.png".
 
    SET_THEME_FLAGS(resFlagNewLine);
    DEFINE_IMAGE(bmpCogwheel, wxImage(20, 20), wxT("Cogwheel"));
+   DEFINE_IMAGE(bmpCloud, wxImage(20, 20), wxT("Cloud"));
+   DEFINE_IMAGE(bmpCloudProgress, wxImage(20, 20), wxT("CloudProgress"));
 
 
    DEFINE_COLOUR( clrBlank,      wxColour( 64,  64,  64), wxT("Blank"));

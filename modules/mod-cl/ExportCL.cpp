@@ -217,6 +217,7 @@ public:
                   mLastCommand = event.GetString();
                });
                mLastCommand = mCommandBox->GetValue();
+               mCommandBox->SetMaxSize(wxSize(50,400));
 
                S.AddButton(XXO("Browse..."), wxALIGN_CENTER_VERTICAL)
                   ->Bind(wxEVT_BUTTON, &ExportOptionsCLEditor::OnBrowse, this);
@@ -360,8 +361,8 @@ public:
 
    void Load(const audacity::BasicSettings& config) override
    {
-      (void)config.Read(wxT("/FileFormats/ExternalProgramExportCommand"), mCommand);
-      (void)config.Read(wxT("/FileFormats/ExternalProgramShowOutput"), mShowOutput);
+      mCommand = config.Read(wxT("/FileFormats/ExternalProgramExportCommand"), mCommand);
+      mShowOutput = config.Read(wxT("/FileFormats/ExternalProgramShowOutput"), mShowOutput);
    }
 
    void Store(audacity::BasicSettings& config) const override
@@ -462,7 +463,6 @@ public:
 
    std::unique_ptr<ExportProcessor> CreateProcessor(int format) const override;
 
-   bool CheckFileName(wxFileName &filename, int format) const override;
 };
 
 int ExportCL::GetFormatCount() const
@@ -855,21 +855,6 @@ std::vector<char> CLExportProcessor::GetMetaChunk(const Tags *tags)
 #endif
 
    return buffer;
-}
-
-bool ExportCL::CheckFileName(wxFileName &filename, int WXUNUSED(format)) const
-{
-   ExtendPath ep;
-
-   if (filename.GetExt().empty()) {
-      if (ShowWarningDialog(NULL,
-                            wxT("MissingExtension"),
-                            XO("You've specified a file name without an extension. Are you sure?"),
-                            true) == wxID_CANCEL) {
-         return false;
-      }
-   }
-   return true;
 }
 
 static ExportPluginRegistry::RegisteredPlugin sRegisteredPlugin{ "CommandLine",

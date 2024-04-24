@@ -24,7 +24,6 @@ This class now lists
 #include "GetInfoCommand.h"
 
 #include "CommandDispatch.h"
-#include "CommandManager.h"
 #include "../CommonCommandFlags.h"
 #include "LoadCommands.h"
 #include "Project.h"
@@ -33,14 +32,14 @@ This class now lists
 #include "CommandTargets.h"
 #include "../effects/EffectManager.h"
 #include "../widgets/Overlay.h"
-#include "../TrackPanelAx.h"
+#include "TrackFocus.h"
 #include "../TrackPanel.h"
 #include "WaveClip.h"
 #include "ViewInfo.h"
 #include "WaveTrack.h"
 #include "prefs/WaveformSettings.h"
 #include "../LabelTrack.h"
-#include "../NoteTrack.h"
+#include "NoteTrack.h"
 #include "TimeTrack.h"
 #include "Envelope.h"
 
@@ -529,6 +528,7 @@ bool GetInfoCommand::SendClips(const CommandContext &context)
             context.AddItem(pClip->GetPlayStartTime(), "start");
             context.AddItem(pClip->GetPlayEndTime(), "end");
             context.AddItem(pClip->GetColourIndex(), "color");
+            context.AddItem(pClip->GetName(), "name");
             context.EndStruct();
          }
       });
@@ -783,18 +783,18 @@ void GetInfoCommand::ExploreWindows( const CommandContext &context,
 }
 
 namespace {
-using namespace MenuTable;
+using namespace MenuRegistry;
 
 // Register menu items
 
 AttachedItem sAttachment{
-   wxT("Optional/Extra/Part2/Scriptables2"),
    // Note that the PLUGIN_SYMBOL must have a space between words,
    // whereas the short-form used here must not.
    // (So if you did write "Compare Audio" for the PLUGIN_SYMBOL name, then
    // you would have to use "CompareAudio" here.)
    Command( wxT("GetInfo"), XXO("Get Info..."),
-      CommandDispatch::OnAudacityCommand, AudioIONotBusyFlag() )
+      CommandDispatch::OnAudacityCommand, AudioIONotBusyFlag() ),
+   wxT("Optional/Extra/Part2/Scriptables2")
 };
 
 }

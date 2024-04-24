@@ -1,23 +1,23 @@
 #include "../CommonCommandFlags.h"
 #include "FileNames.h"
 #include "../LabelTrack.h"
+#include "MenuCreator.h"
 #include "PluginManager.h"
 #include "Prefs.h"
 #include "Project.h"
-#include "ProjectSettings.h"
 #include "../ProjectFileManager.h"
 #include "ProjectHistory.h"
 #include "../ProjectManager.h"
 #include "../ProjectWindows.h"
-#include "../ProjectWindow.h"
+#include "Registry.h"
 #include "SelectFile.h"
 #include "../TagsEditor.h"
 #include "../SelectUtilities.h"
 #include "UndoManager.h"
 #include "ViewInfo.h"
+#include "Viewport.h"
 #include "WaveTrack.h"
-#include "../commands/CommandContext.h"
-#include "../commands/CommandManager.h"
+#include "CommandContext.h"
 #include "RealtimeEffectList.h"
 #include "RealtimeEffectState.h"
 #include "Import.h"
@@ -28,11 +28,11 @@
 #include "wxPanelWrapper.h"
 
 #include "ExportUtils.h"
-#include "export/ExportProgressUI.h"
-#include "export/ExportAudioDialog.h"
+#include "ExportProgressUI.h"
 
 #include <wx/app.h>
 #include <wx/menu.h>
+#include <wx/frame.h>
 
 #include "ExportPluginRegistry.h"
 #include "ProjectRate.h"
@@ -61,19 +61,7 @@ void DoExport(AudacityProject &project, const FileExtension &format)
          return;
       }
 
-      // Prompt for folder before opening the export dialog
-      wxWindow* projectWindow = &ProjectWindow::Get(project);
-      wxFileName filename;
-      int selectedFormatIndex = -1;
-      if (!ExportAudioDialog::RunFolderExplorer(projectWindow, project.GetProjectName(), format, filename, selectedFormatIndex))
-         return;
-
-      // Open the export dialog
-      ExportAudioDialog dialog(projectWindow,
-                               project,
-                               filename,
-                               selectedFormatIndex);
-      dialog.ShowModal();
+      ExportUtils::PerformInteractiveExport(project, format);
    }
    else {
       // We either use a configured output path,
@@ -120,7 +108,7 @@ void DoExport(AudacityProject &project, const FileExtension &format)
       {
          auto editor = plugin->CreateOptionsEditor(formatIndex, nullptr);
          editor->Load(*gPrefs);
-         
+
          auto builder = ExportTaskBuilder {}
             .SetParameters(ExportUtils::ParametersFromEditor(*editor))
             .SetSampleRate(ProjectRate::Get(project).GetRate())
@@ -128,7 +116,7 @@ void DoExport(AudacityProject &project, const FileExtension &format)
             .SetFileName(fullPath)
             .SetNumChannels(nChannels)
             .SetRange(0.0, tracks.GetEndTime(), false);
-         
+
          bool success = false;
          ExportProgressUI::ExceptionWrappedCall([&]
          {
@@ -137,7 +125,7 @@ void DoExport(AudacityProject &project, const FileExtension &format)
             const auto result = ExportProgressUI::Show(builder.Build(project));
             success = result == ExportResult::Success || result == ExportResult::Stopped;
          });
-         
+
          if (success && !project.mBatchMode) {
             FileHistory::Global().Append(fullPath);
          }
@@ -149,7 +137,8 @@ void DoImport(const CommandContext &context, bool isRaw)
 {
    auto &project = context.project;
    auto &trackFactory = WaveTrackFactory::Get( project );
-   auto &window = ProjectWindow::Get( project );
+   auto &viewport = Viewport::Get(project);
+   auto &window = GetProjectFrame(project);
 
    auto selectedFiles = ProjectFileManager::ShowOpenDialog(FileNames::Operation::Import);
    if (selectedFiles.size() == 0) {
@@ -167,10 +156,11 @@ void DoImport(const CommandContext &context, bool isRaw)
    auto cleanup = finally( [&] {
 
       Importer::SetLastOpenType({});
-      window.ZoomAfterImport(nullptr);
-      window.HandleResize(); // Adjust scrollers for NEW track sizes.
+      viewport.ZoomFitHorizontallyAndShowTrack(nullptr);
+      viewport.HandleResize(); // Adjust scrollers for NEW track sizes.
    } );
 
+   std::vector<FilePath> filesToImport;
    for (size_t ff = 0; ff < selectedFiles.size(); ff++) {
       wxString fileName = selectedFiles[ff];
 
@@ -186,10 +176,11 @@ void DoImport(const CommandContext &context, bool isRaw)
                .AddImportedTracks(fileName, std::move(newTracks));
          }
       }
-      else {
-         ProjectFileManager::Get( project ).Import(fileName);
-      }
+      else
+         filesToImport.push_back(fileName);
    }
+   if (!isRaw)
+      ProjectFileManager::Get(project).Import(filesToImport);
 }
 
 // Menu handler functions
@@ -237,7 +228,7 @@ void OnOpen(const CommandContext &context )
 // JKC: This is like OnClose, except it empties the project in place,
 // rather than creating a new empty project (with new toolbars etc).
 // It does not test for unsaved changes.
-// It is not in the menus by default.  Its main purpose is/was for 
+// It is not in the menus by default. Its main purpose is/was for
 // developers checking functionality of ResetProjectToEmpty().
 void OnProjectReset(const CommandContext &context)
 {
@@ -248,7 +239,7 @@ void OnProjectReset(const CommandContext &context)
 void OnClose(const CommandContext &context )
 {
    auto &project = context.project;
-   auto &window = ProjectWindow::Get( project );
+   auto &window = GetProjectFrame(project);
    ProjectFileManager::Get( project ).SetMenuClose(true);
    window.Close();
 }
@@ -307,7 +298,7 @@ void OnExportLabels(const CommandContext &context)
 {
    auto &project = context.project;
    auto &tracks = TrackList::Get( project );
-   auto &window = GetProjectFrame( project );
+   auto &window = GetProjectFrame(project);
 
    /* i18n-hint: filename containing exported text from label tracks */
    wxString fName = _("labels.txt");
@@ -326,12 +317,18 @@ void OnExportLabels(const CommandContext &context)
       wxEmptyString,
       fName,
       wxT("txt"),
+#ifdef EXPERIMENTAL_SUBRIP_LABEL_FORMATS
+      { FileNames::TextFiles, LabelTrack::SubripFiles, LabelTrack::WebVTTFiles },
+#else
       { FileNames::TextFiles },
+#endif
       wxFD_SAVE | wxFD_OVERWRITE_PROMPT | wxRESIZE_BORDER,
       &window);
 
    if (fName.empty())
       return;
+
+   LabelFormat format = LabelTrack::FormatForFileName(fName);
 
    // Move existing files out of the way.  Otherwise wxTextFile will
    // append to (rather than replace) the current file.
@@ -359,7 +356,7 @@ void OnExportLabels(const CommandContext &context)
    }
 
    for (auto lt : trackRange)
-      lt->Export(f);
+      lt->Export(f, format);
 
    f.Write();
    f.Close();
@@ -375,19 +372,25 @@ void OnImportLabels(const CommandContext &context)
    auto &project = context.project;
    auto &trackFactory = WaveTrackFactory::Get( project );
    auto &tracks = TrackList::Get( project );
-   auto &window = ProjectWindow::Get( project );
+   auto &viewport = Viewport::Get(project);
+   auto &window = GetProjectFrame(project);
 
    wxString fileName =
        SelectFile(FileNames::Operation::Open,
          XO("Select a text file containing labels"),
          wxEmptyString,     // Path
          wxT(""),       // Name
-         wxT("txt"),   // Extension
+         wxT("txt"),    // Extension
+#ifdef EXPERIMENTAL_SUBRIP_LABEL_FORMATS
+         { FileNames::TextFiles, LabelTrack::SubripFiles, FileNames::AllFiles },
+#else
          { FileNames::TextFiles, FileNames::AllFiles },
+#endif
          wxRESIZE_BORDER,        // Flags
          &window);    // Parent
 
    if (!fileName.empty()) {
+      LabelFormat format = LabelTrack::FormatForFileName(fileName);
       wxTextFile f;
 
       f.Open(fileName);
@@ -402,7 +405,7 @@ void OnImportLabels(const CommandContext &context)
       wxFileName::SplitPath(fileName, NULL, NULL, &sTrackName, NULL);
       newTrack->SetName(sTrackName);
 
-      newTrack->Import(f);
+      newTrack->Import(f, format);
 
       SelectUtilities::SelectNone( project );
       newTrack->SetSelected(true);
@@ -412,7 +415,7 @@ void OnImportLabels(const CommandContext &context)
          XO("Imported labels from '%s'").Format( fileName ),
             XO("Import Labels"));
 
-      window.ZoomAfterImport(nullptr);
+      viewport.ZoomFitHorizontallyAndShowTrack(nullptr);
    }
 }
 
@@ -435,13 +438,11 @@ void OnExportFLAC(const CommandContext &context)
 
 // Menu definitions
 
-using namespace MenuTable;
+using namespace MenuRegistry;
 
-BaseItemSharedPtr FileMenu()
+auto FileMenu()
 {
-   using Options = CommandManager::Options;
-
-   static BaseItemSharedPtr menu{
+   static auto menu = std::shared_ptr{
    Menu( wxT("File"), XXO("&File"),
       Section( "Basic",
          /*i18n-hint: "New" is an action (verb) to create a NEW project*/
@@ -472,7 +473,7 @@ BaseItemSharedPtr FileMenu()
             XXO("Recent &Files")
    #endif
             ,
-            Special( wxT("PopulateRecentFilesStep"),
+            MenuCreator::Special( wxT("PopulateRecentFilesStep"),
             [](AudacityProject &, wxMenu &theMenu){
                // Recent Files and Recent Projects menus
                auto &history = FileHistory::Global();
@@ -492,12 +493,7 @@ BaseItemSharedPtr FileMenu()
                      recentFilesMenu->GetParent()->SetHelpString( 0, "" );
                } );
             } )
-         ),
-
-   /////////////////////////////////////////////////////////////////////////////
-
-         Command( wxT("Close"), XXO("&Close"), OnClose,
-            AudioIONotBusyFlag(), wxT("Ctrl+W") )
+         )
       ),
 
       Section( "Save",
@@ -511,7 +507,7 @@ BaseItemSharedPtr FileMenu()
          )//,
 
          // Bug 2600: Compact has interactions with undo/history that are bound
-         // to confuse some users.  We don't see a way to recover useful amounts 
+         // to confuse some users. We don't see a way to recover useful amounts
          // of space and not confuse users using undo.
          // As additional space used by aup3 is 50% or so, perfectly valid
          // approach to this P1 bug is to not provide the 'Compact' menu item.
@@ -519,8 +515,12 @@ BaseItemSharedPtr FileMenu()
          //   AudioIONotBusyFlag(), wxT("Shift+A") )
       ),
 
+      Section( "Close", Command( wxT("Close"), XXO("&Close"), OnClose,
+            AudioIONotBusyFlag(), wxT("Ctrl+W") )
+      ),
+
       Section( "Import-Export",
-         Menu( wxT("ExportOther"), XXO("Export"),
+         Menu( wxT("ExportOther"), XXO("Expo&rt"),
             Command( wxT("ExportLabels"), XXO("Export &Labels..."),
                OnExportLabels,
                AudioIONotBusyFlag() | LabelTracksExistFlag() )
@@ -535,7 +535,7 @@ BaseItemSharedPtr FileMenu()
                AudioIONotBusyFlag() )
          ),
 
-         Command( wxT("Export"), XXO("&Render Audio..."), OnExportAudio,
+         Command( wxT("Export"), XXO("R&ender Audio..."), OnExportAudio,
             AudioIONotBusyFlag() | WaveTracksExistFlag(), wxT("Ctrl+Shift+E") )
       ),
 
@@ -551,40 +551,11 @@ BaseItemSharedPtr FileMenu()
    return menu;
 }
 
-AttachedItem sAttachment1{
-   wxT(""),
-   Indirect(FileMenu())
-};
+AttachedItem sAttachment1{ Indirect(FileMenu()) };
 
-BaseItemSharedPtr HiddenFileMenu()
+auto ExtraExportMenu()
 {
-   static BaseItemSharedPtr menu
-   {
-      ConditionalItems( wxT("HiddenFileItems"),
-         []()
-         {
-            // Ensures that these items never appear in a menu, but
-            // are still available to scripting
-            return false;
-         },
-         Menu( wxT("HiddenFileMenu"), XXO("Hidden File Menu"),
-            Command( wxT("ExportFLAC"), XXO("Export as FLAC"),
-               OnExportFLAC,
-               AudioIONotBusyFlag() )
-         )
-      )
-   };
-   return menu;
-}
-
-AttachedItem sAttachment2{
-   wxT(""),
-   Indirect(HiddenFileMenu())
-};
-
-BaseItemSharedPtr ExtraExportMenu()
-{
-   static BaseItemSharedPtr menu{
+   static auto menu = std::shared_ptr{
       Section( "Import-Export",
          Menu( wxT("Export"), XXO("&Export"),
             // Enable Export audio commands only when there are audio tracks.
@@ -594,16 +565,15 @@ BaseItemSharedPtr ExtraExportMenu()
                AudioIONotBusyFlag() | WaveTracksExistFlag() ),
             Command( wxT("ExportOgg"), XXO("Export as &OGG"), OnExportOgg,
                AudioIONotBusyFlag() | WaveTracksExistFlag() ),
-            Command( wxT("ExportFLAC"), XXO("Export as FLAC"),
-               OnExportFLAC,
-               AudioIONotBusyFlag() )
+            Command( wxT("ExportFLAC"), XXO("Export as FLAC"), OnExportFLAC,
+               AudioIONotBusyFlag() | WaveTracksExistFlag() )
         ))};
    return menu;
 }
 
 AttachedItem sAttachment3{
-   wxT("Optional/Extra/Part1"),
-   Indirect( ExtraExportMenu() )
+   Indirect( ExtraExportMenu() ),
+   wxT("Optional/Extra/Part1")
 };
 
 }

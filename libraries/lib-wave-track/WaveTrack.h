@@ -24,6 +24,8 @@
 #include <wx/thread.h>
 #include <wx/longlong.h>
 
+class AudacityProject;
+
 namespace BasicUI{ class ProgressDialog; }
 
 class SampleBlockFactory;
@@ -137,6 +139,11 @@ public:
    inline WaveTrack &GetTrack();
    inline const WaveTrack &GetTrack() const;
 
+   //! TODO wide wave tracks -- remove this
+   inline WaveTrack &ReallyGetTrack();
+   //! TODO wide wave tracks -- remove this
+   inline const WaveTrack &ReallyGetTrack() const;
+
    auto GetInterval(size_t iInterval) { return
       ::Channel::GetInterval<WaveChannelInterval>(iInterval); }
    auto GetInterval(size_t iInterval) const { return
@@ -242,6 +249,8 @@ public:
 
    static wxString GetDefaultAudioTrackNamePreference();
 
+   static double ProjectNyquistFrequency(const AudacityProject &project);
+
    //
    // Constructor / Destructor / Duplicator
    //
@@ -252,7 +261,7 @@ public:
    WaveTrack(
       const SampleBlockFactoryPtr &pFactory, sampleFormat format, double rate);
    //! Copied only in WaveTrack::Clone() !
-   WaveTrack(const WaveTrack &orig, ProtectedCreationArg&&);
+   WaveTrack(const WaveTrack &orig, ProtectedCreationArg&&, bool backup);
 
    //! The width of every WaveClip in this track; for now always 1
    size_t GetWidth() const;
@@ -283,7 +292,7 @@ public:
  private:
    void Init(const WaveTrack &orig);
 
-   TrackListHolder Clone() const override;
+   TrackListHolder Clone(bool backup) const override;
 
    friend class WaveTrackFactory;
 
@@ -486,7 +495,7 @@ public:
     *
     * @pre `!interval.has_value() || interval->first <= interval->second`
     */
-   void ApplyStretchRatio(
+   void ApplyPitchAndSpeed(
       std::optional<TimeInterval> interval, ProgressReporter reportProgress);
 
    void SyncLockAdjust(double oldT1, double newT1) override;
@@ -702,11 +711,11 @@ public:
     * order.
     * @pre `IsLeader()`
     */
-   ClipConstHolders GetClipInterfaces() const;
+   ClipHolders GetClipInterfaces() const;
 
    // Get mutative access to all clips (in some unspecified sequence),
    // including those hidden in cutlines.
-   class AllClipsIterator
+   class WAVE_TRACK_API AllClipsIterator
       : public ValueIterator< WaveClip * >
    {
    public:
@@ -947,6 +956,9 @@ public:
       bool WithinPlayRegion(double t) const;
 
       double GetStretchRatio() const;
+      int GetCentShift() const;
+      PitchAndSpeedPreset GetPitchAndSpeedPreset() const;
+      void SetRawAudioTempo(double tempo);
 
       sampleCount TimeToSamples(double time) const;
       double SamplesToTime(sampleCount s) const;
@@ -971,8 +983,16 @@ public:
       void SetSequenceStartTime(double t);
       void TrimLeftTo(double t);
       void TrimRightTo(double t);
+      void TrimQuarternotesFromRight(double numQuarternotes);
       void StretchLeftTo(double t);
       void StretchRightTo(double t);
+      void StretchBy(double ratio);
+      /*
+       * @post `true` if `TimeAndPitchInterface::MinCent <= cents && cents <=
+       * TimeAndPitchInterface::MaxCent`
+       */
+      bool SetCentShift(int cents);
+      void SetPitchAndSpeedPreset(PitchAndSpeedPreset preset);
       void SetTrimLeft(double t);
       void SetTrimRight(double t);
       void ClearLeft(double t);
@@ -981,11 +1001,12 @@ public:
       /*!
        * @post result: `result->GetStretchRatio() == 1`
        */
-      std::shared_ptr<Interval> GetStretchRenderedCopy(
+      std::shared_ptr<Interval> GetRenderedCopy(
          const std::function<void(double)>& reportProgress,
          const ChannelGroup& group, const SampleBlockFactoryPtr& factory,
          sampleFormat format);
-      bool StretchRatioEquals(double value) const;
+      bool HasPitchOrSpeed() const;
+      bool HasEqualPitchAndSpeed(const Interval& other) const;
 
       std::shared_ptr<const WaveClip> GetClip(size_t iChannel) const
       { return iChannel == 0 ? mpClip : mpClip1; }
@@ -1073,7 +1094,7 @@ private:
    void ExpandOneCutLine(double cutLinePosition,
       double* cutlineStart, double* cutlineEnd);
    bool MergeOneClipPair(int clipidx1, int clipidx2);
-   void ApplyStretchRatioOnIntervals(
+   void ApplyPitchAndSpeedOnIntervals(
       const std::vector<IntervalHolder>& intervals,
       const ProgressReporter& reportProgress);
    //! @pre `IsLeader()`
@@ -1176,12 +1197,15 @@ private:
    bool FormatConsistencyCheck() const;
 
    //! Adds clip to the track. Clip should be not empty or to be a placeholder.
-   //! Sets project tempo on clip upon push. Use this instead of
-   //! `mClips.push_back`.
-   //! @returns true on success
-   bool InsertClip(WaveClipHolder clip);
+   /*!
+    Sets project tempo on clip upon push. Use this instead of `mClips.push_back`
+    @returns true on success
+    @param backup whether the duplication is for backup purposes while opening
+    a project, instead of other editing operations
+    */
+   bool InsertClip(WaveClipHolder clip, bool backup = false);
 
-   void ApplyStretchRatioOne(
+   void ApplyPitchAndSpeedOne(
       double t0, double t1, const ProgressReporter& reportProgress);
 
    SampleBlockFactoryPtr mpFactory;
@@ -1206,6 +1230,16 @@ const WaveTrack &WaveChannel::GetTrack() const {
    auto &result = static_cast<const WaveTrack&>(DoGetChannelGroup());
    // TODO wide wave tracks -- remove assertion
    assert(&result == this);
+   return result;
+}
+
+WaveTrack &WaveChannel::ReallyGetTrack() {
+   auto &result = static_cast<WaveTrack&>(ReallyDoGetChannelGroup());
+   return result;
+}
+
+const WaveTrack &WaveChannel::ReallyGetTrack() const {
+   auto &result = static_cast<const WaveTrack&>(ReallyDoGetChannelGroup());
    return result;
 }
 

@@ -16,9 +16,10 @@ Paul Licameli split from TrackPanel.cpp
 #include "ProjectHistory.h"
 #include "../../ProjectSettings.h"
 #include "../../RefreshCode.h"
-#include "../../Snap.h"
+#include "Snap.h"
 #include "SyncLock.h"
 #include "Track.h"
+#include "../../TrackArt.h"
 #include "../../TrackArtist.h"
 #include "../../TrackPanelDrawingContext.h"
 #include "../../TrackPanelMouseEvent.h"
@@ -116,6 +117,11 @@ UIHandlePtr TimeShiftHandle::HitTest
 
 TimeShiftHandle::~TimeShiftHandle()
 {
+}
+
+std::shared_ptr<const Channel> TimeShiftHandle::FindChannel() const
+{
+   return std::dynamic_pointer_cast<const Channel>(GetTrack());
 }
 
 void ClipMoveState::DoHorizontalOffset(double offset)
@@ -884,7 +890,7 @@ UIHandle::Result TimeShiftHandle::Drag
       // Scroll during vertical drag.
       // If the mouse is over a track that isn't the captured track,
       // decide which tracks the captured clips should go to.
-      // EnsureVisible(pTrack); //vvv Gale says this has problems on Linux, per bug 393 thread. Revert for 2.0.2.
+      // Viewport::Get(*pProject).ShowTrack(pTrack); //vvv Gale says this has problems on Linux, per bug 393 thread. Revert for 2.0.2.
 
       //move intervals with new start/end times
       DoSlideVertical(
@@ -988,8 +994,8 @@ void TimeShiftHandle::Draw(
       auto &dc = context.dc;
       // Draw snap guidelines if we have any
       if ( mSnapManager ) {
-         mSnapManager->Draw(
-            &dc, mClipMoveState.snapLeft, mClipMoveState.snapRight );
+         TrackArt::DrawSnapLines(
+            &dc, mClipMoveState.snapLeft, mClipMoveState.snapRight);
       }
    }
 }

@@ -29,9 +29,9 @@
 #include "LabelTrack.h"
 #include "Prefs.h"
 #include "Project.h"
-#include "ProjectWindow.h"
 #include "SelectFile.h"
 #include "ViewInfo.h"
+#include "Viewport.h"
 #include "tracks/labeltrack/ui/LabelTrackView.h"
 #include "AudacityMessageBox.h"
 #include "AudacityTextEntryDialog.h"
@@ -97,8 +97,8 @@ LabelDialog::LabelDialog(wxWindow *parent,
                          LabelTrack *selectedTrack,
                          int index,
                          ViewInfo &viewinfo,
-                         const NumericFormatSymbol & format,
-                         const NumericFormatSymbol &freqFormat)
+                         const NumericFormatID & format,
+                         const NumericFormatID &freqFormat)
 : wxDialogWrapper(parent,
            wxID_ANY,
            XO("Edit Labels"),
@@ -529,7 +529,7 @@ void LabelDialog::OnUpdate(wxCommandEvent &event)
    // Remember the NEW format and repopulate grid
    mFormat = NumericConverterFormats::Lookup(
       FormatterContext::ProjectContext(mProject),
-      NumericConverterType_TIME(), event.GetString() );
+      NumericConverterType_TIME(), event.GetString()).Internal();
    TransferDataToWindow();
 
    event.Skip(false);
@@ -540,7 +540,7 @@ void LabelDialog::OnFreqUpdate(wxCommandEvent &event)
    // Remember the NEW format and repopulate grid
    mFreqFormat = NumericConverterFormats::Lookup(
       FormatterContext::ProjectContext(mProject),
-      NumericConverterType_FREQUENCY(), event.GetString() );
+      NumericConverterType_FREQUENCY(), event.GetString()).Internal();
    TransferDataToWindow();
 
    event.Skip(false);
@@ -633,12 +633,18 @@ void LabelDialog::OnImport(wxCommandEvent & WXUNUSED(event))
          wxEmptyString,     // Path
          wxT(""),       // Name
          wxT("txt"),   // Extension
+#ifdef EXPERIMENTAL_SUBRIP_LABEL_FORMATS
+         { FileNames::TextFiles, LabelTrack::SubripFiles, FileNames::AllFiles },
+#else
          { FileNames::TextFiles, FileNames::AllFiles },
+#endif
          wxRESIZE_BORDER, // Flags
          this);    // Parent
 
    // They gave us one...
    if (!fileName.empty()) {
+      LabelFormat format = LabelTrack::FormatForFileName(fileName);
+
       wxTextFile f;
 
       // Get at the data
@@ -651,7 +657,7 @@ void LabelDialog::OnImport(wxCommandEvent & WXUNUSED(event))
          // Create a temporary label track and load the labels
          // into it
          auto lt = std::make_shared<LabelTrack>();
-         lt->Import(f);
+         lt->Import(f, format);
 
          // Add the labels to our collection
          AddLabels(lt.get());
@@ -682,12 +688,18 @@ void LabelDialog::OnExport(wxCommandEvent & WXUNUSED(event))
       wxEmptyString,
       fName,
       wxT("txt"),
+#ifdef EXPERIMENTAL_SUBRIP_LABEL_FORMATS
+      { FileNames::TextFiles, LabelTrack::SubripFiles, LabelTrack::WebVTTFiles },
+#else
       { FileNames::TextFiles },
+#endif
       wxFD_SAVE | wxFD_OVERWRITE_PROMPT | wxRESIZE_BORDER,
       this);
 
    if (fName.empty())
       return;
+
+   LabelFormat format = LabelTrack::FormatForFileName(fName);
 
    // Move existing files out of the way.  Otherwise wxTextFile will
    // append to (rather than replace) the current file.
@@ -729,7 +741,7 @@ void LabelDialog::OnExport(wxCommandEvent & WXUNUSED(event))
    }
 
    // Export them and clean
-   lt->Export(f);
+   lt->Export(f, format);
 
 #ifdef __WXMAC__
    f.Write(wxTextFileType_Mac);
@@ -749,7 +761,7 @@ void LabelDialog::OnSelectCell(wxGridEvent &event)
       RowData &rd = mData[event.GetRow()];
       mViewInfo->selectedRegion = rd.selectedRegion;
 
-      ProjectWindow::Get( mProject ).RedrawProject();
+      Viewport::Get(mProject).Redraw();
    }
 
    event.Skip();

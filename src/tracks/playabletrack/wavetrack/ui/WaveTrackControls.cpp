@@ -28,7 +28,7 @@ Paul Licameli split from TrackPanel.cpp
 #include "Theme.h"
 #include "../../../../TrackArtist.h"
 #include "../../../../TrackPanel.h"
-#include "../../../../TrackPanelAx.h"
+#include "TrackFocus.h"
 #include "../../../../TrackPanelMouseEvent.h"
 #include "WaveTrack.h"
 #include "RealtimeEffectManager.h"
@@ -290,7 +290,7 @@ void FormatMenuTable::OnFormatChange(wxCommandEvent & event)
    // which is always associated with a leader track
    assert(pTrack->IsLeader());
    pTrack->ConvertToSampleFormat(newFormat, progressUpdate);
-         
+
    ProjectHistory::Get( *project )
    /* i18n-hint: The strings name a track and a format */
       .PushState(XO("Changed '%s' to %s")
@@ -677,12 +677,9 @@ BEGIN_POPUP_MENU(WaveTrackMenuTable)
 
       AppendItem( "Split", OnSplitStereoID, XXO("Spl&it Stereo Track"),
          POPUP_MENU_FN( OnSplitStereo ), enableSplitStereo );
-   // DA: Uses split stereo track and then drag pan sliders for split-stereo-to-mono
-   #ifndef EXPERIMENTAL_DA
       AppendItem( "SplitToMono", OnSplitStereoMonoID,
          XXO("Split Stereo to Mo&no"), POPUP_MENU_FN( OnSplitStereoMono ),
          enableSplitStereo );
-   #endif
    EndSection();
 
    BeginSection( "Format" );
@@ -779,7 +776,7 @@ void WaveTrackMenuTable::OnMergeStereo(wxCommandEvent &)
                   std::abs(a->End() - b->End()) < eps &&
                   eqTrims(a->GetTrimLeft(), b->GetTrimLeft()) &&
                   eqTrims(a->GetTrimRight(), b->GetTrimRight()) &&
-                  a->StretchRatioEquals(b->GetStretchRatio());
+                  a->HasEqualPitchAndSpeed(*b);
             });
          if(it == rightIntervals.end())
             return false;
@@ -836,7 +833,7 @@ void WaveTrackMenuTable::OnMergeStereo(wxCommandEvent &)
    tracks.Insert(*first, std::move(*mix));
    tracks.Remove(*left);
    tracks.Remove(*right);
-   
+
    for(const auto& channel : newTrack->Channels())
    {
       // Set NEW track heights and minimized state
@@ -873,7 +870,7 @@ void WaveTrackMenuTable::SplitStereo(bool stereo)
 
    for (const auto track : unlinkedTracks) {
       auto &view = ChannelView::Get(*track->GetChannel(0));
-      
+
       //make sure no channel is smaller than its minimum height
       if (view.GetHeight() < view.GetMinimizedHeight())
          view.SetExpandedHeight(view.GetMinimizedHeight());
@@ -967,7 +964,7 @@ WaveTrackPopupMenuTable &GetWaveTrackMenuTable()
 
 // drawing related
 #include "../../../../widgets/ASlider.h"
-#include "../../../../TrackInfo.h"
+#include "../../../ui/CommonTrackInfo.h"
 #include "../../../../TrackPanelDrawingContext.h"
 #include "ViewInfo.h"
 
@@ -981,7 +978,7 @@ void SliderDrawFunction
   bool captured, bool highlight )
 {
    wxRect sliderRect = rect;
-   TrackInfo::GetSliderHorizontalBounds( rect.GetTopLeft(), sliderRect );
+   CommonTrackInfo::GetSliderHorizontalBounds( rect.GetTopLeft(), sliderRect );
    auto wt = static_cast<const WaveTrack*>( pTrack );
    Selector( sliderRect, wt, captured, pParent )->OnPaint(*dc, highlight);
 }
@@ -993,7 +990,7 @@ void PanSliderDrawFunction
    auto target = dynamic_cast<PanSliderHandle*>( context.target.get() );
    auto dc = &context.dc;
    bool hit = target && target->GetTrack().get() == pTrack;
-   bool captured = hit && target->IsClicked();
+   bool captured = hit && target->IsDragging();
 
    const auto artist = TrackArtist::Get( context );
    auto pParent = FindProjectFrame( artist->parent->GetProject() );
@@ -1012,7 +1009,7 @@ void GainSliderDrawFunction
    bool hit = target && target->GetTrack().get() == pTrack;
    if( hit )
       hit=hit;
-   bool captured = hit && target->IsClicked();
+   bool captured = hit && target->IsDragging();
 
    const auto artist = TrackArtist::Get( context );
    auto pParent = FindProjectFrame( artist->parent->GetProject() );
@@ -1078,21 +1075,17 @@ static const struct WaveTrackTCPLines
       { TCPLine::kItemPan, kTrackInfoSliderHeight, kTrackInfoSliderExtra,
         PanSliderDrawFunction },
 
-#ifdef EXPERIMENTAL_DA
-      // DA: Does not have status information for a track.
-#else
       { TCPLine::kItemStatusInfo1, 12, 0,
         Status1DrawFunction },
       { TCPLine::kItemStatusInfo2, 12, 0,
         Status2DrawFunction },
-#endif
 
    } );
 } } waveTrackTCPLines;
 
 void WaveTrackControls::GetGainRect(const wxPoint &topleft, wxRect & dest)
 {
-   TrackInfo::GetSliderHorizontalBounds( topleft, dest );
+   CommonTrackInfo::GetSliderHorizontalBounds( topleft, dest );
    auto results = CalcItemY( waveTrackTCPLines, TCPLine::kItemGain );
    dest.y = topleft.y + results.first;
    dest.height = results.second;
@@ -1107,7 +1100,7 @@ void WaveTrackControls::GetPanRect(const wxPoint &topleft, wxRect & dest)
 
 unsigned WaveTrackControls::DefaultWaveTrackHeight()
 {
-   return TrackInfo::DefaultTrackHeight( waveTrackTCPLines );
+   return CommonTrackInfo::DefaultTrackHeight( waveTrackTCPLines );
 }
 
 const TCPLines &WaveTrackControls::GetTCPLines() const
