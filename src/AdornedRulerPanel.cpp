@@ -1375,6 +1375,11 @@ void AdornedRulerPanel::UpdatePrefs()
    // Update button texts for language change
    UpdateButtonStates();
 
+   {
+      auto scrollBeyondZero = ScrollingPreference.Read();
+      mRuler.SetTwoTone(scrollBeyondZero);
+   }
+
    mTimeDisplayMode = TimeDisplayModePreference.ReadEnum();
    Refresh();
    // Update();

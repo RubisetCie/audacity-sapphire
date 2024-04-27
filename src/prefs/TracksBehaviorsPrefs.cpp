@@ -112,6 +112,8 @@ void TracksBehaviorsPrefs::PopulateOrExchange(ShuttleGui & S)
       S.TieCheckBox(XXO("Use dialog for the &name of a new label"),
                     {wxT("/GUI/DialogForNameNewLabel"),
                      false});
+      S.TieCheckBox(XXO("Enable scrolling left of &zero"),
+                    ScrollingPreference);
 
       S.AddSpace(10);
 
@@ -173,6 +175,7 @@ bool TracksBehaviorsPrefs::Commit()
    ShuttleGui S(this, eIsSavingToPrefs);
    PopulateOrExchange(S);
    EditClipsCanMove.Invalidate();
+   ScrollingPreference.Invalidate();
 
    return true;
 }

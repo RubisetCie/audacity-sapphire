@@ -224,6 +224,7 @@ public:
    // drawing the waveform. Maybe this should be put somewhere else?
 
    bool bUpdateTrackIndicator;
+   bool bScrollBeyondZero;
 
    void WriteXMLAttributes(XMLWriter &xmlFile) const;
 
@@ -232,5 +233,7 @@ private:
 
    struct ProjectFileIORegistration;
 };
+
+extern TIME_FREQUENCY_SELECTION_API BoolSetting ScrollingPreference;
 
 #endif
