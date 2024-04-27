@@ -19,6 +19,7 @@ The *Sapphire* version includes quality of life changes that helps me in my work
 
 - File explorer prompt on audio rendering before the actual export dialog.
 - Audio cursor line extends to multiple tracks below.
+- Added scrolling to the left of the zero.
 - Non-modal dialogs for non-realtime effects.
 
 ## Building

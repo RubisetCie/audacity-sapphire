@@ -125,6 +125,7 @@ public:
    void OnScrollRightButton(wxScrollEvent & event);
 
    std::pair<int, int> ViewportSize() const;
+   bool MayScrollBeyondZero() const;
    unsigned MinimumTrackHeight() ;
    bool IsTrackMinimized(const Track &track) ;
    void SetMinimized(Track &track, bool minimized) ;

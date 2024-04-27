@@ -182,7 +182,13 @@ void Viewport::OnScrollRightButton()
 
 double Viewport::ScrollingLowerBoundTime() const
 {
-   return 0;
+   auto &project = mProject;
+   auto &tracks = TrackList::Get(project);
+   auto &viewInfo = ViewInfo::Get(project);
+   if (!(mpCallbacks && mpCallbacks->MayScrollBeyondZero()))
+      return 0;
+   const double screen = viewInfo.GetScreenEndTime() - viewInfo.hpos;
+   return std::min(tracks.GetStartTime(), -screen);
 }
 
 // PRL: Bug1197: we seem to need to compute all in double, to avoid differing results on Mac
@@ -286,7 +292,9 @@ void Viewport::UpdateScrollbarsForTracks()
    const double halfScreen = screen / 2.0;
 
    const double lowerBound = ScrollingLowerBoundTime();
-   const double additional = screen / 4.0;
+   const double additional = mpCallbacks && mpCallbacks->MayScrollBeyondZero()
+      ? -lowerBound + std::max(halfScreen, screen - LastTime)
+      : screen / 4.0;
 
    total = LastTime + additional;
 
@@ -421,6 +429,16 @@ void Viewport::DoScroll()
    auto width = viewInfo.GetTracksUsableWidth();
    const auto zoom = viewInfo.GetZoom();
    viewInfo.hpos = std::clamp(sbarH / zoom, lowerBound, total - width / zoom);
+
+   if (mpCallbacks && mpCallbacks->MayScrollBeyondZero()) {
+      enum { SCROLL_PIXEL_TOLERANCE = 10 };
+      if (std::abs(viewInfo.TimeToPosition(0.0, 0
+                                   )) < SCROLL_PIXEL_TOLERANCE) {
+         // Snap the scrollbar to 0
+         viewInfo.hpos = 0;
+         SetHorizontalThumb(0.0, false);
+      }
+   }
 
    const auto pos = mpCallbacks ? mpCallbacks->GetVerticalThumbPosition() : 0;
    viewInfo.vpos = pos * scrollStep;
@@ -668,7 +686,9 @@ double Viewport::GetZoomOfToFit() const
    auto &viewInfo = ViewInfo::Get(project);
 
    const double end = tracks.GetEndTime();
-   const double start = 0;
+   const double start = viewInfo.bScrollBeyondZero
+      ? std::min(tracks.GetStartTime(), 0.0)
+      : 0;
    const double len = end - start;
 
    if (len <= 0.0)
@@ -685,7 +705,9 @@ void Viewport::ZoomFitHorizontally()
    auto &viewInfo = ViewInfo::Get(project);
    auto &tracks = TrackList::Get(project);
 
-   const double start = 0;
+   const double start = viewInfo.bScrollBeyondZero
+      ? std::min(tracks.GetStartTime(), 0.0)
+      : 0;
 
    Zoom(GetZoomOfToFit());
    SetHorizontalThumb(start);

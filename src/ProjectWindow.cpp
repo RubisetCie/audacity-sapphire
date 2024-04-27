@@ -24,6 +24,7 @@ Paul Licameli split from AudacityProject.cpp
 #include "prefs/ThemePrefs.h"
 #include "prefs/TracksPrefs.h"
 #include "toolbars/ToolManager.h"
+#include "tracks/ui/Scrubbing.h"
 #include "tracks/ui/ChannelView.h"
 #include "wxPanelWrapper.h"
 #include "WindowAccessible.h"
@@ -452,6 +453,8 @@ struct Adapter final : ViewportCallbacks {
 
    std::pair<int, int> ViewportSize() const override
    { return mwWindow ? mwWindow->ViewportSize() : std::pair{ 1, 1 }; }
+   bool MayScrollBeyondZero() const override
+   { return mwWindow ? mwWindow->MayScrollBeyondZero() : false; }
 
    unsigned MinimumTrackHeight() override
    { return mwWindow ? mwWindow->MinimumTrackHeight() : 0; }
@@ -696,6 +699,32 @@ std::pair<int, int> ProjectWindow::ViewportSize() const
    int width, height;
    trackPanel.GetSize(&width, &height);
    return { width, height };
+}
+
+bool ProjectWindow::MayScrollBeyondZero() const
+{
+#if EXPERIMENTAL_SCRUBBING_SUPPORT
+   auto pProject = FindProject();
+   if (!pProject)
+      return false;
+   auto &project = *pProject;
+   auto &scrubber = Scrubber::Get( project );
+   auto &viewInfo = ViewInfo::Get( project );
+   if (viewInfo.bScrollBeyondZero)
+      return true;
+
+   if (scrubber.HasMark() ||
+       ProjectAudioIO::Get( project ).IsAudioActive()) {
+      if (mPlaybackScroller) {
+         auto mode = mPlaybackScroller->GetMode();
+         if (mode == PlaybackScroller::Mode::Pinned ||
+             mode == PlaybackScroller::Mode::Right)
+            return true;
+      }
+   }
+#endif
+
+   return false;
 }
 
 unsigned ProjectWindow::MinimumTrackHeight()
@@ -1283,6 +1312,7 @@ void ProjectWindow::PlaybackScroller::OnTimer()
       }
       viewInfo.hpos =
          viewInfo.OffsetTimeByPixels(viewInfo.hpos, deltaX, true);
+      if (!ProjectWindow::Get( *mProject ).MayScrollBeyondZero())
          // Can't scroll too far left
          viewInfo.hpos = std::max(0.0, viewInfo.hpos);
       trackPanel.Refresh(false);
