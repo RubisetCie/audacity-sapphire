@@ -48,6 +48,7 @@ for shared and private configs - which need to move out.
 // Registry has the list of plug ins
 #define REGVERKEY wxString(wxT("/pluginregistryversion"))
 #define REGROOT wxString(wxT("/pluginregistry/"))
+#define REGCUSTOMPATHS wxString(wxT("/providercustompaths"))
 
 // Settings has the values of the plug in settings.
 #define SETVERKEY wxString(wxT("/pluginsettingsversion"))
@@ -226,7 +227,7 @@ void PluginManager::FindFilesInPathList(const wxString & pattern,
    }
  
    // Add the "Audacity" plug-ins directory
-   wxFileName ff = PlatformCompatibility::GetExecutablePath();
+   wxFileName ff = wxString { PlatformCompatibility::GetExecutablePath() };
 #if defined(__WXMAC__)
    // Path ends for example in "Audacity.app/Contents/MacOSX"
    //ff.RemoveLastDir();
@@ -320,9 +321,6 @@ bool PluginManager::RemoveConfig(ConfigurationType type, const PluginID & ID,
 //
 // ============================================================================
 
-// The one and only PluginManager
-std::unique_ptr<PluginManager> PluginManager::mInstance{};
-
 // ----------------------------------------------------------------------------
 // Creation/Destruction
 // ----------------------------------------------------------------------------
@@ -378,12 +376,8 @@ static PluginManager::ConfigFactory sFactory;
 
 PluginManager & PluginManager::Get()
 {
-   if (!mInstance)
-   {
-      mInstance.reset(safenew PluginManager);
-   }
-
-   return *mInstance;
+   static PluginManager instance;
+   return instance;
 }
 
 void PluginManager::Initialize(ConfigFactory factory)
@@ -623,7 +617,8 @@ void PluginManager::LoadGroup(audacity::BasicSettings *pRegistry, PluginType typ
    // were properly installed in /Applications (or whatever it is called in
    // your locale)
 
-   const auto fullExePath = PlatformCompatibility::GetExecutablePath();
+   const auto fullExePath =
+      wxString { PlatformCompatibility::GetExecutablePath() };
 
    // Strip rightmost path components up to *.app
    wxFileName exeFn{ fullExePath };
@@ -907,6 +902,25 @@ const PluginRegistryVersion &PluginManager::GetRegistryVersion() const
    return mRegver;
 }
 
+
+PluginPaths PluginManager::ReadCustomPaths(const PluginProvider& provider)
+{
+   auto group = mSettings->BeginGroup(REGCUSTOMPATHS);
+   const auto key = GetID(&provider);
+   const auto paths = mSettings->Read(key, wxString{});
+   const auto wxarr = wxSplit(paths, ';');
+   return PluginPaths(wxarr.begin(), wxarr.end());
+}
+
+void PluginManager::StoreCustomPaths(const PluginProvider& provider, const PluginPaths& paths)
+{
+   auto group = mSettings->BeginGroup(REGCUSTOMPATHS);
+   const auto key = GetID(&provider);
+   wxArrayString wxarr;
+   std::copy(paths.begin(), paths.end(), std::back_inserter(wxarr));
+   mSettings->Write(key, wxJoin(wxarr, ';'));
+}
+
 void PluginManager::SaveGroup(audacity::BasicSettings *pRegistry, PluginType type)
 {
    wxString group = GetPluginTypeString(type);
@@ -1110,7 +1124,8 @@ void PluginManager::EnablePlugin(const PluginID & ID, bool enable)
       iter->second.SetEnabled(enable);
 }
 
-const ComponentInterfaceSymbol & PluginManager::GetSymbol(const PluginID & ID)
+const ComponentInterfaceSymbol&
+PluginManager::GetSymbol(const PluginID& ID) const
 {
    if (auto iter = mRegisteredPlugins.find(ID); iter == mRegisteredPlugins.end()) {
       static ComponentInterfaceSymbol empty;
@@ -1118,6 +1133,38 @@ const ComponentInterfaceSymbol & PluginManager::GetSymbol(const PluginID & ID)
    }
    else
       return iter->second.GetSymbol();
+}
+
+TranslatableString PluginManager::GetName(const PluginID& ID) const
+{
+   return GetSymbol(ID).Msgid();
+}
+
+CommandID PluginManager::GetCommandIdentifier(const PluginID& ID) const
+{
+   const auto name = GetSymbol(ID).Internal();
+   return EffectDefinitionInterface::GetSquashedName(name);
+}
+
+const PluginID&
+PluginManager::GetByCommandIdentifier(const CommandID& strTarget)
+{
+   static PluginID empty;
+   if (strTarget.empty()) // set GetCommandIdentifier to wxT("") to not show an
+                          // effect in Batch mode
+   {
+      return empty;
+   }
+
+   // Effects OR Generic commands...
+   for (auto& plug :
+        PluginsOfType(PluginTypeEffect | PluginTypeAudacityCommand))
+   {
+      auto& ID = plug.GetID();
+      if (GetCommandIdentifier(ID) == strTarget)
+         return ID;
+   }
+   return empty;
 }
 
 ComponentInterface *PluginManager::Load(const PluginID & ID)
@@ -1220,12 +1267,12 @@ std::map<wxString, std::vector<wxString>> PluginManager::CheckPluginUpdates()
    return newPaths;
 }
 
-PluginID PluginManager::GetID(PluginProvider *provider)
+PluginID PluginManager::GetID(const PluginProvider *provider)
 {
    return ModuleManager::GetID(provider);
 }
 
-PluginID PluginManager::GetID(ComponentInterface *command)
+PluginID PluginManager::GetID(const ComponentInterface *command)
 {
    return wxString::Format(wxT("%s_%s_%s_%s_%s"),
                            GetPluginTypeString(PluginTypeAudacityCommand),

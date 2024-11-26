@@ -10,6 +10,7 @@
 #ifndef __AUDACITY_TRACK_ART__
 #define __AUDACITY_TRACK_ART__
 
+class Channel;
 class Track;
 struct TrackPanelDrawingContext;
 class wxBrush;
@@ -46,12 +47,14 @@ namespace TrackArt {
    void DrawSyncLockTiles(
       TrackPanelDrawingContext &context, const wxRect &rect );
 
-   // Helper: draws background with selection rect
+   //TODO: refactor
+   /// @brief Helper: draws background with selection rect
+   /// @param useBeatsAlternateColor is only meaningful in Beats mode
    AUDACITY_DLL_API
    void DrawBackgroundWithSelection(TrackPanelDrawingContext &context,
-         const wxRect &rect, const Track *track,
+         const wxRect &rect, const Channel &channel,
          const wxBrush &selBrush, const wxBrush &unselBrush,
-         bool useSelection = true);
+         bool useSelection = true, bool useBeatsAlternateColor = false);
 
    AUDACITY_DLL_API
    void DrawCursor(TrackPanelDrawingContext& context,

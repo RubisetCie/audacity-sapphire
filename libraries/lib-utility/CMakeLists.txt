@@ -12,8 +12,7 @@ did not yet provide std::make_unique.  That explains the name.
 Audacity now uses C++17, and yet, need arose for other anticipations of future
 standards.  It also provides other pervasively used utilities that don't
 correspond to things in the standard.
-
-]]#
+]]
 
 set( SOURCES
    AppEvents.cpp
@@ -32,6 +31,7 @@ set( SOURCES
    GlobalVariable.h
    IteratorX.cpp
    IteratorX.h
+   LockFreeQueue.h
    MathApprox.h
    MemoryX.cpp
    MemoryX.h

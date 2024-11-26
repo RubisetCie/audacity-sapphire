@@ -82,26 +82,22 @@ class MixerTrackCluster final : public wxPanelWrapper
 {
 public:
    MixerTrackCluster(wxWindow* parent,
-                     MixerBoard* grandParent, AudacityProject* project,
-                     const std::shared_ptr<PlayableTrack> &pTrack,
-                     const wxPoint& pos = wxDefaultPosition,
-                     const wxSize& size = wxDefaultSize);
+      MixerBoard* grandParent, AudacityProject* project,
+      PlayableTrack &track,
+      const wxPoint& pos = wxDefaultPosition,
+      const wxSize& size = wxDefaultSize);
    virtual ~MixerTrackCluster() {}
 
    WaveTrack *GetWave() const;
    WaveChannel *GetRight() const;
-#ifdef EXPERIMENTAL_MIDI_OUT
    NoteTrack *GetNote() const;
-#endif
 
    //void UpdatePrefs();
 
-   void HandleResize(); // For wxSizeEvents, update gain slider and meter.
+   void HandleResize(); // For wxSizeEvents, update volume slider and meter.
 
    void HandleSliderGain(const bool bWantPushState = false);
-#ifdef EXPERIMENTAL_MIDI_OUT
    void HandleSliderVelocity(const bool bWantPushState = false);
-#endif
    void HandleSliderPan(const bool bWantPushState = false);
 
    void ResetMeter(const bool bResetClipping);
@@ -121,17 +117,14 @@ private:
 
    void OnButton_MusicalInstrument(wxCommandEvent& event);
    void OnSlider_Gain(wxCommandEvent& event);
-#ifdef EXPERIMENTAL_MIDI_OUT
    void OnSlider_Velocity(wxCommandEvent& event);
-#endif
    void OnSlider_Pan(wxCommandEvent& event);
    void OnButton_Mute(wxCommandEvent& event);
    void OnButton_Solo(wxCommandEvent& event);
-   //v void OnSliderScroll_Gain(wxScrollEvent& event);
-
 
 public:
-   std::shared_ptr<PlayableTrack>   mTrack;
+   //! Invariant not null
+   std::shared_ptr<PlayableTrack> mTrack;
 
 private:
    MixerBoard* mMixerBoard;
@@ -143,10 +136,8 @@ private:
    AButton* mToggleButton_Mute;
    AButton* mToggleButton_Solo;
    MixerTrackSlider* mSlider_Pan;
-   MixerTrackSlider* mSlider_Gain;
-#ifdef EXPERIMENTAL_MIDI_OUT
+   MixerTrackSlider* mSlider_Volume;
    MixerTrackSlider* mSlider_Velocity;
-#endif
    wxWeakRef<MeterPanel> mMeter;
    ChannelGroupSampleView mSampleView;
 

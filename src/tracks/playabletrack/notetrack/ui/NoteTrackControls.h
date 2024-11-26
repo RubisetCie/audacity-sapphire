@@ -24,16 +24,8 @@ class VelocitySliderHandle;
 
 
 
-using NoteTrackControlsBase =
-#ifdef EXPERIMENTAL_MIDI_OUT
-   PlayableTrackControls
-#else
-   CommonTrackControls
-#endif
-   ;
-
 ///////////////////////////////f////////////////////////////////////////////////
-class NoteTrackControls : public NoteTrackControlsBase
+class NoteTrackControls : public PlayableTrackControls
 {
    NoteTrackControls(const NoteTrackControls&) = delete;
    NoteTrackControls &operator=(const NoteTrackControls&) = delete;
@@ -46,7 +38,7 @@ class NoteTrackControls : public NoteTrackControlsBase
 public:
    explicit
    NoteTrackControls( std::shared_ptr<Track> pTrack )
-      : NoteTrackControlsBase( pTrack ) {}
+      : PlayableTrackControls( pTrack ) {}
    ~NoteTrackControls();
 
    std::vector<UIHandlePtr> HitTest
@@ -59,7 +51,7 @@ public:
 
    static unsigned DefaultNoteTrackHeight();
    static void GetMidiControlsRect(const wxRect & rect, wxRect & dest);
-   static void GetVelocityRect(const wxPoint &topleft, wxRect & dest);
+   static void GetVelocityRect(const wxRect &rect, wxRect & dest);
    
    static LWSlider * VelocitySlider
       (const wxRect &sliderRect, const NoteTrack *t, bool captured,

@@ -1,6 +1,6 @@
 #include "../CommonCommandFlags.h"
 #include "FileNames.h"
-#include "../LabelTrack.h"
+#include "LabelTrack.h"
 #include "MenuCreator.h"
 #include "PluginManager.h"
 #include "Prefs.h"
@@ -27,8 +27,8 @@
 #include "../widgets/MissingPluginsErrorDialog.h"
 #include "wxPanelWrapper.h"
 
-#include "ExportUtils.h"
 #include "ExportProgressUI.h"
+#include "ExportUtils.h"
 
 #include <wx/app.h>
 #include <wx/menu.h>
@@ -36,11 +36,13 @@
 
 #include "ExportPluginRegistry.h"
 #include "ProjectRate.h"
+#include "export/ExportAudioDialog.h"
 
 // private helper classes and functions
 namespace {
 
-void DoExport(AudacityProject &project, const FileExtension &format)
+void DoExport(
+   AudacityProject& project, const FileExtension& format, AudiocomTrace trace)
 {
    auto &tracks = TrackList::Get( project );
 
@@ -61,7 +63,7 @@ void DoExport(AudacityProject &project, const FileExtension &format)
          return;
       }
 
-      ExportUtils::PerformInteractiveExport(project, format);
+      ExportUtils::PerformInteractiveExport(project, format, trace, false);
    }
    else {
       // We either use a configured output path,
@@ -160,7 +162,7 @@ void DoImport(const CommandContext &context, bool isRaw)
       viewport.HandleResize(); // Adjust scrollers for NEW track sizes.
    } );
 
-   std::vector<FilePath> filesToImport;
+   wxArrayString filesToImport;
    for (size_t ff = 0; ff < selectedFiles.size(); ff++) {
       wxString fileName = selectedFiles[ff];
 
@@ -177,7 +179,7 @@ void DoImport(const CommandContext &context, bool isRaw)
          }
       }
       else
-         filesToImport.push_back(fileName);
+         filesToImport.Add(fileName);
    }
    if (!isRaw)
       ProjectFileManager::Get(project).Import(filesToImport);
@@ -273,25 +275,33 @@ void OnSaveCopy(const CommandContext &context )
 void OnExportMp3(const CommandContext &context)
 {
    auto &project = context.project;
-   DoExport(project, "MP3");
+   DoExport(
+      project, "MP3",
+      AudiocomTrace::ShareAudioExportExtraMenu);
 }
 
 void OnExportWav(const CommandContext &context)
 {
    auto &project = context.project;
-   DoExport(project, "WAV");
+   DoExport(
+      project, "WAV",
+      AudiocomTrace::ShareAudioExportExtraMenu);
 }
 
 void OnExportOgg(const CommandContext &context)
 {
    auto &project = context.project;
-   DoExport(project, "OGG");
+   DoExport(
+      project, "OGG",
+      AudiocomTrace::ShareAudioExportExtraMenu);
 }
 
 void OnExportAudio(const CommandContext &context)
 {
    auto &project = context.project;
-   DoExport(project, "");
+   DoExport(
+      project, "",
+      AudiocomTrace::ShareAudioExportMenu);
 }
 
 void OnExportLabels(const CommandContext &context)
@@ -317,11 +327,7 @@ void OnExportLabels(const CommandContext &context)
       wxEmptyString,
       fName,
       wxT("txt"),
-#ifdef EXPERIMENTAL_SUBRIP_LABEL_FORMATS
       { FileNames::TextFiles, LabelTrack::SubripFiles, LabelTrack::WebVTTFiles },
-#else
-      { FileNames::TextFiles },
-#endif
       wxFD_SAVE | wxFD_OVERWRITE_PROMPT | wxRESIZE_BORDER,
       &window);
 
@@ -370,7 +376,6 @@ void OnImport(const CommandContext &context)
 void OnImportLabels(const CommandContext &context)
 {
    auto &project = context.project;
-   auto &trackFactory = WaveTrackFactory::Get( project );
    auto &tracks = TrackList::Get( project );
    auto &viewport = Viewport::Get(project);
    auto &window = GetProjectFrame(project);
@@ -381,11 +386,7 @@ void OnImportLabels(const CommandContext &context)
          wxEmptyString,     // Path
          wxT(""),       // Name
          wxT("txt"),    // Extension
-#ifdef EXPERIMENTAL_SUBRIP_LABEL_FORMATS
          { FileNames::TextFiles, LabelTrack::SubripFiles, FileNames::AllFiles },
-#else
-         { FileNames::TextFiles, FileNames::AllFiles },
-#endif
          wxRESIZE_BORDER,        // Flags
          &window);    // Parent
 
@@ -433,7 +434,20 @@ void OnExit(const CommandContext &WXUNUSED(context) )
 
 void OnExportFLAC(const CommandContext &context)
 {
-   DoExport(context.project, "FLAC");
+   DoExport(
+      context.project, "FLAC",
+      AudiocomTrace::ShareAudioExportExtraMenu);
+}
+
+void OnExportSelectedAudio(const CommandContext &context)
+{
+   if(!ExportUtils::HasSelectedAudio(context.project))
+      return;
+
+   ExportUtils::PerformInteractiveExport(
+      context.project, "",
+      AudiocomTrace::ignore, // Local save, no need.
+      true);
 }
 
 // Menu definitions
@@ -515,10 +529,6 @@ auto FileMenu()
          //   AudioIONotBusyFlag(), wxT("Shift+A") )
       ),
 
-      Section( "Close", Command( wxT("Close"), XXO("&Close"), OnClose,
-            AudioIONotBusyFlag(), wxT("Ctrl+W") )
-      ),
-
       Section( "Import-Export",
          Menu( wxT("ExportOther"), XXO("Expo&rt"),
             Command( wxT("ExportLabels"), XXO("Export &Labels..."),
@@ -539,12 +549,16 @@ auto FileMenu()
             AudioIONotBusyFlag() | WaveTracksExistFlag(), wxT("Ctrl+Shift+E") )
       ),
 
+      Section( "Close", Command( wxT("Close"), XXO("&Close Project"), OnClose,
+            AudioIONotBusyFlag(), wxT("Ctrl+W") )
+      ),
+
       Section( "Exit",
          // On the Mac, the Exit item doesn't actually go here...wxMac will
          // pull it out
          // and put it in the Audacity menu for us based on its ID.
          /* i18n-hint: (verb) It's item on a menu. */
-         Command( wxT("Exit"), XXO("E&xit"), OnExit,
+         Command( wxT("Exit"), XXO("&Quit Audacity"), OnExit,
             AlwaysEnabledFlag, wxT("Ctrl+Q") )
       )
    ) };
@@ -566,7 +580,9 @@ auto ExtraExportMenu()
             Command( wxT("ExportOgg"), XXO("Export as &OGG"), OnExportOgg,
                AudioIONotBusyFlag() | WaveTracksExistFlag() ),
             Command( wxT("ExportFLAC"), XXO("Export as FLAC"), OnExportFLAC,
-               AudioIONotBusyFlag() | WaveTracksExistFlag() )
+               AudioIONotBusyFlag() | WaveTracksExistFlag() ),
+            Command( wxT("ExportSel"), XXO("Expo&rt Selected Audio..."), OnExportSelectedAudio,
+               AudioIONotBusyFlag() | WaveTracksSelectedFlag() | TimeSelectedFlag() )
         ))};
    return menu;
 }

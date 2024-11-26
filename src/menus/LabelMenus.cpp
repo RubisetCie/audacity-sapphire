@@ -2,7 +2,7 @@
 #include "BasicUI.h"
 #include "../Clipboard.h"
 #include "../CommonCommandFlags.h"
-#include "../LabelTrack.h"
+#include "LabelTrack.h"
 #include "Prefs.h"
 #include "Project.h"
 #include "ProjectAudioIO.h"
@@ -15,7 +15,7 @@
 #include "ViewInfo.h"
 #include "Viewport.h"
 #include "WaveTrack.h"
-#include "WaveTrackUtilities.h"
+#include "TimeStretching.h"
 #include "CommandContext.h"
 #include "../tracks/labeltrack/ui/LabelTrackView.h"
 #include "toolbars/ToolManager.h"
@@ -160,9 +160,30 @@ void GetRegionsByLabel(
    }
 }
 
-/*!
- @pre `track.IsLeader()`
- */
+
+auto GetTracksToEditByLabel(const AudacityProject& project, const TrackList& tracks)
+{
+   const bool syncLocked = SyncLockState::Get(project).IsSyncLocked();
+   const bool playableTrackSelected = !tracks.Selected<const PlayableTrack>().empty();
+
+   return [syncLocked, playableTrackSelected](const auto pTrack) {
+      // All sync-locked tracks should be edited,
+      // if sync lock is enabled regardless of selection
+      if (syncLocked) {
+         return SyncLock::IsSyncLockSelected(*pTrack);
+      }
+
+      // Non-playable tracks should not be edited if sync-lock disabled
+      if (dynamic_cast<const PlayableTrack*>(pTrack) == nullptr) {
+         return false;
+      }
+
+      // If no playable tracks were selected,
+      // then all tracks should be edited
+      return playableTrackSelected ? pTrack->IsSelected() : true;
+   };
+}
+
 using EditFunction = std::function<void(Track& track, double, double)>;
 using EditFunctionWithProgress =
    std::function<void(Track& track, double, double, ProgressReporter)>;
@@ -185,13 +206,7 @@ void EditByLabel(
    if (regions.empty())
       return;
 
-   const bool notLocked = (!SyncLockState::Get(project).IsSyncLocked() &&
-                           (tracks.Selected<PlayableTrack>()).empty());
-
-   const auto tracksToEdit = tracks.Any<Track>() + [&](const auto pTrack) {
-      return SyncLock::IsSyncLockSelected(pTrack) ||
-             (notLocked && dynamic_cast<const PlayableTrack*>(pTrack) != nullptr);
-   };
+   const auto tracksToEdit = tracks.Any<Track>() + GetTracksToEditByLabel(project, tracks);
 
    BasicUI::SplitProgress(
       tracksToEdit.begin(), tracksToEdit.end(),
@@ -221,10 +236,8 @@ void EditByLabel(
       nullptr);
 }
 
-//! The argument is always a leader track and the return has an equal number
-//! of channels, or is null
 using EditDestFunction =
-   std::function<std::shared_ptr<TrackList>(Track &, double, double)>;
+   std::function<Track::Holder(Track &, double, double)>;
 
 //Executes the edit function on all selected wave tracks with
 //regions specified by selected labels
@@ -242,8 +255,7 @@ void EditClipboardByLabel(AudacityProject &project,
    if (regions.empty())
       return;
 
-   const bool notLocked = (!SyncLockState::Get(project).IsSyncLocked() &&
-                           (tracks.Selected<PlayableTrack>()).empty());
+   const auto tracksToEdit = tracks.Any<Track>() + GetTracksToEditByLabel(project, tracks);
 
    auto &clipboard = Clipboard::Get();
    clipboard.Clear();
@@ -255,42 +267,44 @@ void EditClipboardByLabel(AudacityProject &project,
    //labeled regions in the end. This is to correctly perform
    //actions like 'Cut' which collapse the track area.
 
-   for (auto t : tracks) {
-      const bool playable = dynamic_cast<const PlayableTrack *>(t) != nullptr;
-      if (SyncLock::IsSyncLockSelected(t) || (notLocked && playable)) {
-         // These tracks accumulate the needed clips, right to left:
-         std::shared_ptr<TrackList> merged;
-         for (size_t i = regions.size(); i--;) {
-            const Region &region = regions.at(i);
-            if (auto dest = action(*t, region.start, region.end)) {
-               if (!merged)
-                  merged = dest;
-               else {
-                  const auto pMerged = *merged->begin();
-                  // Paste to the beginning; unless this is the first region,
-                  // offset the track to account for time between the regions
-                  if (i + 1 < regions.size())
-                     pMerged->ShiftBy(
-                        regions.at(i + 1).start - region.end);
+   for (auto t : tracksToEdit) {
+      // These tracks accumulate the needed clips, right to left:
+      Track::Holder merged;
+      for (size_t i = regions.size(); i--;) {
+         const Region &region = regions.at(i);
+         if (auto dest = action(*t, region.start, region.end)) {
+            if (!merged)
+               merged = dest;
+            else {
+               // Paste to the beginning; unless this is the first region,
+               // offset the track to account for time between the regions
+               if (i + 1 < regions.size())
+                  merged->ShiftBy(
+                     regions.at(i + 1).start - region.end);
 
-                  // dest may have a placeholder clip at the end that is
-                  // removed when pasting, which is okay because we proceed
-                  // right to left.  Any placeholder already in merged is kept.
-                  // Only the rightmost placeholder is important in the final
-                  // result.
-                  pMerged->Paste(0.0, *dest);
-               }
+               // If GetEditClipsCanMove is not set, we need to manually
+               // shift the merged track by the end time of the dest clip,
+               // to make room for pasting because Paste does not
+               // handle shifting in this case.
+               if (!GetEditClipsCanMove())
+                  merged->ShiftBy(dest->GetEndTime());
+
+               // dest may have a placeholder clip at the end that is
+               // removed when pasting, which is okay because we proceed
+               // right to left.  Any placeholder already in merged is kept.
+               // Only the rightmost placeholder is important in the final
+               // result.
+               merged->Paste(0.0, *dest);
             }
-            else
-               // nothing copied but there is a 'region', so the 'region' must
-               // be a 'point label' so offset
-               if (i + 1 < regions.size() && merged)
-                  (*merged->begin())
-                     ->ShiftBy(regions.at(i + 1).start - region.end);
          }
-         if (merged)
-            newClipboard.Append(std::move(*merged));
+         else
+            // nothing copied but there is a 'region', so the 'region' must
+            // be a 'point label' so offset
+            if (i + 1 < regions.size() && merged)
+               merged->ShiftBy(regions.at(i + 1).start - region.end);
       }
+      if (merged)
+         newClipboard.Add(merged);
    }
 
    // Survived possibility of exceptions.  Commit changes to the clipboard now.
@@ -417,8 +431,7 @@ void OnCutLabels(const CommandContext &context)
    // Because of grouping the copy may need to operate on different tracks than
    // the clear, so we do these actions separately.
    auto copyfunc = [&](Track &track, double t0, double t1) {
-      assert(track.IsLeader());
-      std::shared_ptr<TrackList> result;
+      Track::Holder result;
       track.TypeSwitch( [&](WaveTrack &wt) { result = wt.Copy(t0, t1); } );
       return result;
    };
@@ -426,7 +439,6 @@ void OnCutLabels(const CommandContext &context)
 
    bool enableCutlines = gPrefs->ReadBool(wxT( "/GUI/EnableCutLines"), false);
    auto editfunc = [&](Track &track, double t0, double t1) {
-      assert(track.IsLeader());
       track.TypeSwitch(
          [&](WaveTrack &t) {
             if (enableCutlines)
@@ -461,7 +473,6 @@ void OnDeleteLabels(const CommandContext &context)
       return;
 
    auto editfunc = [&](Track &track, double t0, double t1) {
-      assert(track.IsLeader());
       track.TypeSwitch( [&](Track &t) { t.Clear(t0, t1); } );
    };
    EditByLabel(project, tracks, selectedRegion, editfunc);
@@ -485,8 +496,7 @@ void OnSplitCutLabels(const CommandContext &context)
       return;
 
    auto copyfunc = [&](Track &track, double t0, double t1) {
-      assert(track.IsLeader());
-      std::shared_ptr<TrackList> result;
+      Track::Holder result;
       track.TypeSwitch(
          [&](WaveTrack &wt) {
             result = wt.SplitCut(t0, t1);
@@ -501,11 +511,8 @@ void OnSplitCutLabels(const CommandContext &context)
    EditClipboardByLabel(project, tracks, selectedRegion, copyfunc);
 
    ProjectHistory::Get(project).PushState(
-      /* i18n-hint: (verb) Audacity has just split cut the labeled audio
-         regions*/
-      XO("Split Cut labeled audio regions to clipboard"),
-      /* i18n-hint: (verb) Do a special kind of cut on the labels*/
-      XO("Split Cut Labeled Audio"));
+      XO("Cut labeled audio regions to clipboard and leave gap"),
+      XO("Cut labeled audio and leave gap"));
 }
 
 void OnSplitDeleteLabels(const CommandContext &context)
@@ -518,7 +525,6 @@ void OnSplitDeleteLabels(const CommandContext &context)
       return;
 
    auto editfunc = [&](Track &track, double t0, double t1) {
-      assert(track.IsLeader());
       track.TypeSwitch(
          [&](WaveTrack &t) {
             t.SplitDelete(t0, t1);
@@ -549,7 +555,6 @@ void OnSilenceLabels(const CommandContext &context)
       return;
 
    auto editfunc = [&](Track &track, double t0, double t1) {
-      assert(track.IsLeader());
       // TODO use progress-bar utilities pending in
       // https://github.com/audacity/audacity/pull/5043
       track.TypeSwitch([&](WaveTrack& t) { t.Silence(t0, t1, {}); });
@@ -573,8 +578,7 @@ void OnCopyLabels(const CommandContext &context)
       return;
 
    auto copyfunc = [&](Track &track, double t0, double t1) {
-      assert(track.IsLeader());
-      std::shared_ptr<TrackList> result;
+      Track::Holder result;
       track.TypeSwitch( [&](WaveTrack &wt) { result = wt.Copy(t0, t1); } );
       return result;
    };
@@ -596,7 +600,6 @@ void OnSplitLabels(const CommandContext &context)
       return;
 
    auto editfunc = [&](Track &track, double t0, double t1) {
-      assert(track.IsLeader());
       track.TypeSwitch( [&](WaveTrack &t) { t.Split(t0, t1); } );
    };
    EditByLabel(project, tracks, selectedRegion, editfunc);
@@ -619,11 +622,15 @@ void OnJoinLabels(const CommandContext &context)
       return;
 
    auto editfunc = [&](Track& track, double t0, double t1, ProgressReporter reportProgress) {
-      assert(track.IsLeader());
       track.TypeSwitch(
-         [&](WaveTrack& t) { t.Join(t0, t1, std::move(reportProgress)); });
+         [&](WaveTrack& t) {
+            // Extend Join Region by one sample, to ensure
+            // that Split-Join operation on a given label is reversible and consistent
+            const auto sampleTime = 1.0 / t.GetRate();
+            t.Join(t0 - sampleTime, t1 + sampleTime, std::move(reportProgress));
+         });
    };
-   WaveTrackUtilities::WithClipRenderingProgress(
+   TimeStretching::WithClipRenderingProgress(
       [&](ProgressReporter progress) {
          EditByLabel(project, tracks, selectedRegion, editfunc, progress);
       });
@@ -646,7 +653,6 @@ void OnDisjoinLabels(const CommandContext &context)
       return;
 
    auto editfunc = [&](Track &track, double t0, double t1) {
-      assert(track.IsLeader());
       track.TypeSwitch( [&](WaveTrack &t) {
          wxBusyCursor busy;
          t.Disjoin(t0, t1);
@@ -736,21 +742,21 @@ auto LabelEditMenus()
          Command( wxT("CutLabels"), XXO("&Cut"), OnCutLabels,
             AudioIONotBusyFlag() | LabelsSelectedFlag() | WaveTracksExistFlag() |
                TimeSelectedFlag(),
-               Options{ wxT("Alt+X"), XO("Label Cut") } ),
+               Options{ wxT("Alt+X"), XO("Cut by label") } ),
          Command( wxT("DeleteLabels"), XXO("&Delete"), OnDeleteLabels,
             AudioIONotBusyFlag() | LabelsSelectedFlag() | WaveTracksExistFlag() |
                TimeSelectedFlag(),
-            Options{ wxT("Alt+K"), XO("Label Delete") } )
+            Options{ wxT("Alt+K"), XO("Delete by label") } )
       ),
 
       Section( "",
          /* i18n-hint: (verb) A special way to cut out a piece of audio*/
-         Command( wxT("SplitCutLabels"), XXO("&Split Cut"),
+         Command( wxT("SplitCutLabels"), XXO("C&ut and leave gap"),
             OnSplitCutLabels, NotBusyLabelsAndWaveFlags,
-            Options{ wxT("Alt+Shift+X"), XO("Label Split Cut") } ),
-         Command( wxT("SplitDeleteLabels"), XXO("Sp&lit Delete"),
+            Options{ wxT("Alt+Shift+X"), XO("Cut by labels and leave gap") } ),
+         Command( wxT("SplitDeleteLabels"), XXO("De&lete and leave gap"),
             OnSplitDeleteLabels, NotBusyLabelsAndWaveFlags,
-            Options{ wxT("Alt+Shift+K"), XO("Label Split Delete") } )
+            Options{ wxT("Alt+Shift+K"), XO("Delete by labels and leave gap") } )
       ),
 
       Section( "",

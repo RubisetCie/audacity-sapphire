@@ -7,6 +7,8 @@ set( SOURCES
    EffectBase.h
    Effect.cpp
    Effect.h
+   EffectManager.cpp
+   EffectManager.h
    EffectOutputTracks.cpp
    EffectOutputTracks.h
    EffectPlugin.cpp
@@ -19,6 +21,10 @@ set( SOURCES
    PerTrackEffect.h
    StatefulEffectBase.cpp
    StatefulEffectBase.h
+   StatefulEffect.cpp
+   StatefulEffect.h
+   StatefulPerTrackEffect.cpp
+   StatefulPerTrackEffect.h
 )
 set( LIBRARIES
    lib-command-parameters-interface

@@ -33,7 +33,7 @@ public:
 
    //! Extra gain factor to apply to a channel when mixing,
    //! may change asynchronously
-   virtual float GetChannelGain(int channel) const = 0;
+   virtual float GetChannelVolume(int channel) const = 0;
 
    //! Retrieve samples from a sequence in floating-point format, regardless of
    //! the storage format
@@ -63,7 +63,6 @@ public:
    //! Retrieve samples of one of the channels from a sequence in a specified
    //! format
    /*!
-    @copydetails SampleTrack::GetFloats()
     @param format sample format of the destination buffer
     @param backward retrieves samples from `start` (inclusive) to `start + len`
     if false, else from `start` (exclusive) to `start - len` in reverse order.

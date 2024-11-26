@@ -172,7 +172,7 @@ bool FileNames::HardLinkFile( const FilePath& file1, const FilePath& file2 )
 #ifdef __WXMSW__
 
    // Fix forced ASCII conversions and wrong argument order - MJB - 29/01/2019
-   //return ::CreateHardLinkA( file1.c_str(), file2.c_str(), NULL );  
+   //return ::CreateHardLinkA( file1.c_str(), file2.c_str(), NULL );
    return ( 0 != ::CreateHardLink( file2, file1, NULL ) );
 
 #else
@@ -309,8 +309,8 @@ FilePath GetUserTargetDir(DirTarget target, bool allowRoaming)
 #else
          // Use OS-provided user data dir folder
          wxString newDir(FileNames::LowerCaseAppNameInPath(
-            allowRoaming ? wxStandardPaths::Get().GetUserDataDir() :
-                           wxStandardPaths::Get().GetUserLocalDataDir()));
+            allowRoaming ? PlatformCompatibility::GetUserDataDir() :
+                           PlatformCompatibility::GetUserLocalDataDir()));
 #endif
          dir = FileNames::MkDir(newDir);
       }
@@ -326,9 +326,9 @@ FilePath FileNames::StateDir() { return GetUserTargetDir(DirTarget::State, false
 
 FilePath FileNames::ResourcesDir(){
 #if __WXMSW__
-   static auto resourcesDir = wxFileName(wxStandardPaths::Get().GetExecutablePath()).GetPath();
+   static auto resourcesDir = wxFileName(PlatformCompatibility::GetExecutablePath()).GetPath();
 #else
-   static auto resourcesDir = LowerCaseAppNameInPath(wxStandardPaths::Get().GetResourcesDir());
+   static auto resourcesDir = LowerCaseAppNameInPath(PlatformCompatibility::GetResourcesDir());
 #endif
    return resourcesDir;
 }
@@ -348,7 +348,8 @@ FilePath FileNames::HtmlHelpDir()
 #else
    //linux goes into /*prefix*/share/audacity/
    //windows (probably) goes into the dir containing the .exe
-   wxString dataDir = FileNames::LowerCaseAppNameInPath( wxStandardPaths::Get().GetDataDir());
+   wxString dataDir =
+      FileNames::LowerCaseAppNameInPath(PlatformCompatibility::GetDataDir());
    return wxFileName( dataDir+wxT("/help/manual"), wxEmptyString ).GetFullPath();
 #endif
 }
@@ -407,12 +408,12 @@ FilePath FileNames::BaseDir()
    // just remove the MacOSX part.
    baseDir.RemoveLastDir();
 #elif defined(__WXMSW__)
-   // Don't use wxStandardPaths::Get().GetDataDir() since it removes
+   // Don't use PlatformCompatibility::GetDataDir() since it removes
    // the "Debug" directory in debug builds.
    baseDir = PlatformCompatibility::GetExecutablePath();
 #else
    // Linux goes into /*prefix*/share/audacity/
-   baseDir = FileNames::LowerCaseAppNameInPath(wxStandardPaths::Get().GetPluginsDir());
+   baseDir = FileNames::LowerCaseAppNameInPath(PlatformCompatibility::GetPluginsDir());
 #endif
 
    return baseDir.GetPath();
@@ -497,14 +498,14 @@ wxFileNameWrapper FileNames::DefaultToDocumentsFolder(const wxString &preference
    wxFileNameWrapper result;
 
 #ifdef _WIN32
-   wxFileName defaultPath( wxStandardPaths::Get().GetDocumentsDir(), "" );
+   wxFileName defaultPath( PlatformCompatibility::GetDocumentsDir(), "" );
 
    defaultPath.AppendDir( AppName );
    result.SetPath( gPrefs->Read( preference, defaultPath.GetPath( wxPATH_GET_VOLUME ) ) );
 
    // MJB: Bug 1899 & Bug 2007.  Only create directory if the result is the default path
    bool bIsDefaultPath = result == defaultPath;
-   if( !bIsDefaultPath ) 
+   if( !bIsDefaultPath )
    {
       // IF the prefs directory doesn't exist - (Deleted by our user perhaps?)
       //    or exists as a file
@@ -626,7 +627,12 @@ void FileNames::AddUniquePathToPathList(const FilePath &pathArg,
                                           FilePaths &pathList)
 {
    wxFileNameWrapper pathNorm { pathArg };
-   pathNorm.Normalize();
+   // https://github.com/audacity/audacity/issues/6448 :
+   // Do not seek to expand environment variables here: it is not needed, and
+   // wxWidgets has an issue doing so - See
+   // https://github.com/wxWidgets/wxWidgets/issues/19214
+   const auto flags = wxPATH_NORM_ALL & ~wxPATH_NORM_ENV_VARS;
+   pathNorm.Normalize(flags);
    const wxString newpath{ pathNorm.GetFullPath() };
 
    for(const auto &path : pathList) {

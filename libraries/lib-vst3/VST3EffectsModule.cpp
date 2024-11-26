@@ -24,6 +24,7 @@
 #include "ModuleManager.h"
 
 #include "wxArrayStringEx.h"
+#include "PlatformCompatibility.h"
 #include "PluginInterface.h"
 #include "PluginProvider.h"
 #include "PluginProvider.h"
@@ -149,8 +150,13 @@ void VST3EffectsModule::AutoRegisterPlugins(PluginManagerInterface &)
 {
 }
 
+bool VST3EffectsModule::SupportsCustomModulePaths() const
+{
+   return true;
+}
+
 PluginPaths
-VST3EffectsModule::FindModulePaths(PluginManagerInterface &)
+VST3EffectsModule::FindModulePaths(PluginManagerInterface &pluginManager)
 {
    //Note: The host recursively scans these folders at startup in this order (User/Global/Application).
    //https://developer.steinberg.help/display/VST/Plug-in+Locations
@@ -175,13 +181,17 @@ VST3EffectsModule::FindModulePaths(PluginManagerInterface &)
 
    // bundled/app specific
    {
-      auto path = wxFileName(wxStandardPaths::Get().GetExecutablePath());
+      auto path = wxFileName(PlatformCompatibility::GetExecutablePath());
 #ifdef __WXGTK__
       path.AppendDir("vst3");
 #else
       path.AppendDir("VST3");
 #endif
       pathList.push_back(path.GetPath());
+   }
+   {
+      auto customPaths = pluginManager.ReadCustomPaths(*this);
+      std::copy(customPaths.begin(), customPaths.end(), std::back_inserter(pathList));
    }
 
    PluginPaths result;

@@ -48,6 +48,7 @@ or ASlider.
 #include <wx/settings.h>
 #include <wx/popupwin.h>
 #include <wx/window.h>
+#include <wx/display.h>
 
 #include "AColor.h"
 #include "ImageManipulation.h"
@@ -275,6 +276,11 @@ SliderDialog::SliderDialog(wxWindow * parent, wxWindowID id,
    {
       prec = 1;
       trailing = NumValidatorStyle::ONE_TRAILING_ZERO;
+   }
+   if (style == SPEED_SLIDER)
+   {
+      prec = 3;
+      trailing = NumValidatorStyle::THREE_TRAILING_ZEROES;
    }
 
    ShuttleGui S(this, eIsCreating);
@@ -537,17 +543,15 @@ LWSlider::LWSlider(wxWindow *parent,
       break;
    case SPEED_SLIDER:
       minValue = 0.01f;
-      maxValue = 3.0f;
+      maxValue = 3.000f;
       stepValue = STEP_CONTINUOUS;
       break;
-#ifdef EXPERIMENTAL_MIDI_OUT
    case VEL_SLIDER:
       minValue = VEL_MIN;
       maxValue = VEL_MAX;
       stepValue = 1.0f;
       speed = 0.5;
       break;
-#endif
    default:
       minValue = 0.0f;
       maxValue = 1.0f;
@@ -1035,10 +1039,9 @@ TranslatableString LWSlider::GetTip(float value) const
 
       case SPEED_SLIDER:
          /* i18n-hint: "x" suggests a multiplicative factor */
-         val = XO("%.2fx").Format( value );
+         val = XO("%.3fx").Format( value );
          break;
 
-#ifdef EXPERIMENTAL_MIDI_OUT
       case VEL_SLIDER:
          if (value > 0.0f)
             // Signed
@@ -1047,7 +1050,6 @@ TranslatableString LWSlider::GetTip(float value) const
             // Zero, or signed negative
             val = Verbatim("%d").Format( (int) value );
          break;
-#endif
       }
 
       if(!mName.empty())
@@ -1102,11 +1104,9 @@ TranslatableStrings LWSlider::GetWidestTips() const
          results.push_back( GetTip( 9.99f ) );
          break;
 
-#ifdef EXPERIMENTAL_MIDI_OUT
       case VEL_SLIDER:
           results.push_back( GetTip( 999.f ) );
           break;
-#endif
       }
    }
    else
@@ -1147,6 +1147,24 @@ bool LWSlider::DoShowDialog(wxPoint pos)
    if (pos == wxPoint(-1, -1)) {
       dlg.Center();
    }
+   wxRect screenRect = wxDisplay(wxDisplay::GetFromPoint(pos)).GetClientArea();
+   int screenOffset = 8;
+   int dlgWidth = dlg.GetSize().GetWidth();
+   int dlgHeight = dlg.GetSize().GetHeight();
+
+   if (pos.x + dlgWidth > screenRect.GetRight()) {
+      pos.x = screenRect.GetRight() - dlgWidth - screenOffset;
+   }
+   if (pos.x < screenRect.GetLeft()) {
+      pos.x = screenRect.GetLeft() + screenOffset;
+   }
+   if (pos.y + dlgHeight > screenRect.GetBottom()) {
+      pos.y = screenRect.GetBottom() - dlgHeight - screenOffset;
+   }
+   if (pos.y < screenRect.GetTop()) {
+      pos.y = screenRect.GetTop() + screenOffset;
+   }
+   dlg.SetPosition(pos);
    
    changed = (dlg.ShowModal() == wxID_OK);
    if( changed )
@@ -1444,10 +1462,8 @@ wxString LWSlider::GetStringValue() const
       return wxString::Format(wxT("%.0f"), mCurrentValue * 100);
    case SPEED_SLIDER:
       return wxString::Format(wxT("%.0f"), mCurrentValue * 100 );
-#ifdef EXPERIMENTAL_MIDI_OUT
    case VEL_SLIDER:
       return wxString::Format(wxT("%.0f"), mCurrentValue);
-#endif
    default:
       return {};
    }

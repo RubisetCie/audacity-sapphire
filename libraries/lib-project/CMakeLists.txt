@@ -7,13 +7,11 @@ Also a global array of existing projects.
 
 Also ProjectStatus, an abstraction of the status bar, just holding some strings
 and formatter functions, and emitting events when changed.
-]]#
+]]
 
 set( SOURCES
    Project.cpp
    Project.h
-   ProjectFormatExtensionsRegistry.cpp
-   ProjectFormatExtensionsRegistry.h
    ProjectFormatVersion.cpp
    ProjectFormatVersion.h
    ProjectStatus.cpp

@@ -433,17 +433,14 @@ void ProjectManager::OnCloseWindow(wxCloseEvent & event)
    // project is now empty.
    if (!sbSkipPromptingForSave
       && event.CanVeto()
-      && (settings.EmptyCanBeDirty() || bHasTracks)) {
+      && bHasTracks) {
       if ( UndoManager::Get( project ).UnsavedChanges() ) {
          TitleRestorer Restorer( window, project );// RAII
          /* i18n-hint: The first %s numbers the project, the second %s is the project name.*/
          auto Title = XO("%sSave changes to %s?")
             .Format( Restorer.sProjNumber, Restorer.sProjName );
          auto Message = XO("Save project before closing?");
-         if( !bHasTracks )
-         {
-          Message += XO("\nIf saved, the project will have no tracks.\n\nTo save any previously open tracks:\nCancel, Edit > Undo until all tracks\nare open, then File > Save Project.");
-         }
+
          int result = AudacityMessageBox(
             Message,
             Title,
@@ -533,21 +530,28 @@ void ProjectManager::OnCloseWindow(wxCloseEvent & event)
    // TODO: Is there a Mac issue here??
    // SetMenuBar(NULL);
 
+   auto& undoManager = UndoManager::Get(project);
+   if (undoManager.GetSavedState() >= 0)
+   {
+      constexpr auto doAutoSave = false;
+      ProjectHistory::Get(project).SetStateTo(
+         undoManager.GetSavedState(), doAutoSave);
+   }
+
    // Compact the project.
    projectFileManager.CompactProjectOnClose();
 
-   // Set (or not) the bypass flag to indicate that deletes that would happen during
-   // the UndoManager::ClearStates() below are not necessary.
+   // Set (or not) the bypass flag to indicate that deletes that would happen
+   // during undoManager.ClearStates() below are not necessary. Must be called
+   // between `CompactProjectOnClose()` and `undoManager.ClearStates()`.
    projectFileIO.SetBypass();
 
-   {
-      // This can reduce reference counts of sample blocks in the project's
-      // tracks.
-      UndoManager::Get( project ).ClearStates();
+   // This can reduce reference counts of sample blocks in the project's
+   // tracks.
+   undoManager.ClearStates();
 
-      // Delete all the tracks to free up memory
-      tracks.Clear();
-   }
+   // Delete all the tracks to free up memory
+   tracks.Clear();
 
    // Some of the AdornedRulerPanel functions refer to the TrackPanel, so destroy this
    // before the TrackPanel is destroyed. This change was needed to stop Audacity
@@ -802,7 +806,7 @@ void ProjectManager::OnStatusChange(StatusBarField field)
 
    const auto &msg = ProjectStatus::Get( project ).Get( field );
    SetStatusText( msg, field );
-   
+
    if ( field == MainStatusBarField() )
       // When recording, let the NEW status message stay at least as long as
       // the timer interval (if it is not replaced again by this function),

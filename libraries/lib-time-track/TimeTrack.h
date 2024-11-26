@@ -53,8 +53,8 @@ class TIME_TRACK_API TimeTrack final
    Track::Holder PasteInto(AudacityProject &project, TrackList &list)
       const override;
 
-   TrackListHolder Cut(double t0, double t1) override;
-   TrackListHolder Copy(double t0, double t1, bool forClipboard) const override;
+   Track::Holder Cut(double t0, double t1) override;
+   Track::Holder Copy(double t0, double t1, bool forClipboard) const override;
    void Clear(double t0, double t1) override;
    void Paste(double t, const Track &src) override;
    void
@@ -64,6 +64,7 @@ class TIME_TRACK_API TimeTrack final
    // TimeTrack parameters
 
    void MoveTo(double /* t */) override {}
+   void ShiftBy(double, double) override {}
 
    // XMLTagHandler callback methods for loading and saving
 
@@ -106,9 +107,6 @@ private:
 
    void CleanState();
 
-   void DoOnProjectTempoChange(
-      const std::optional<double>& oldTempo, double newTempo) override;
-
    std::unique_ptr<BoundedEnvelope> mEnvelope;
    bool             mDisplayLog;
    bool             mRescaleXMLValues; // needed for backward-compatibility with older project files
@@ -123,7 +121,7 @@ private:
    using Holder = std::unique_ptr<TimeTrack>;
 
 private:
-   TrackListHolder Clone(bool backup) const override;
+   Track::Holder Clone(bool backup) const override;
 };
 
 ENUMERATE_TRACK_TYPE(TimeTrack);

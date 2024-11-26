@@ -31,8 +31,8 @@ endif()
 # Increment as appropriate after release of a new version, and set back
 # AUDACITY_BUILD_LEVEL to 0
 set( AUDACITY_VERSION 3 )
-set( AUDACITY_RELEASE 5 )
-set( AUDACITY_REVISION 1 )
+set( AUDACITY_RELEASE 7 )
+set( AUDACITY_REVISION 0 )
 set( AUDACITY_MODLEVEL 0 )
 
 string( TIMESTAMP __TDATE__ "%Y%m%d" )
@@ -289,6 +289,12 @@ set_from_env(SENTRY_DSN_KEY)
 set_from_env(SENTRY_HOST)
 set_from_env(SENTRY_PROJECT)
 set_from_env(CRASH_REPORT_URL)
+
+option(
+   ${_OPT}has_whats_new
+   "Show \"What's New\" dialog on startup"
+   On
+)
 
 cmake_dependent_option(
    ${_OPT}has_crashreports
@@ -674,7 +680,8 @@ string( JOIN "\n" GRAPH_EDGES ${GRAPH_EDGES} )
 # Choose edge attributes making it easy to hover at either end of edge
 # and see a tooltip describing the edge, in svg image
 file( WRITE "${CMAKE_CURRENT_BINARY_DIR}/modules.dot" "digraph {
-   graph [rankdir=LR] edge [dir=both,arrowtail=inv] \n"
+   graph [rankdir=LR newrank=true] edge [dir=both,arrowtail=inv] \n"
+   "${GRAPH_SUBGRAPHS}\n"
    "${GRAPH_EDGES}"
    "\n}\n"
 )

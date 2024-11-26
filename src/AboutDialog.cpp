@@ -126,6 +126,9 @@ void AboutDialog::CreateCreditsList()
    const auto graphicsFormat =
    /* i18n-hint: For "About Audacity..." credits, substituting a person's proper name */
       XO("%s, graphics");
+   const auto presetsFormat =
+   /* i18n-hint: For "About Audacity..." credits, substituting a person's proper name */
+      XO("%s, effects presets");
 
    // The Audacity Team: developers and support
    AddCredit(wxT("Antons \u010cinakovs"), testerFormat, roleTeamMember);
@@ -134,13 +137,11 @@ void AboutDialog::CreateCreditsList()
    AddCredit(wxT("Martin Keary"), roleTeamMember);
    AddCredit(wxT("Sergey Lapysh"), testerFormat, roleTeamMember);
    AddCredit(wxT("Yana Larina"), roleTeamMember);
-   AddCredit(wxT("Paul Licameli"), developerFormat, roleTeamMember);
+   AddCredit(wxT("Dmitry Makarenko"), developerFormat, roleTeamMember);
    AddCredit(wxT("Dilson's Pickles"), designerFormat, roleTeamMember);
-   AddCredit(wxT("Anita Sudan"), roleTeamMember);
-   AddCredit(wxT("Vitaly Sverchinsky"), developerFormat, roleTeamMember);
-   AddCredit(wxT("Dmitry Vedenko"), developerFormat, roleTeamMember);
    AddCredit(wxT("Leo Wattenberg"), designerFormat, roleTeamMember);
    AddCredit(wxT("Jessica Williamson"), designerFormat, roleTeamMember);
+   AddCredit(wxT("Grzegorz Wojciechowski"), developerFormat, roleTeamMember);
    
    
    // Emeritus: people who were "lead developers" or made an
@@ -162,6 +163,7 @@ void AboutDialog::CreateCreditsList()
    AddCredit(wxT("Ruslan Ijbulatov"), developerFormat, roleEmeritusTeam);
    AddCredit(wxT("Vaughan Johnson"), developerFormat, roleEmeritusTeam);
    AddCredit(wxT("Greg Kozikowski"), documentationAndSupportFormat, roleEmeritusTeam);
+   AddCredit(wxT("Paul Licameli"), developerFormat, roleEmeritusTeam);
    AddCredit(wxT("Leland Lucius"), developerFormat, roleEmeritusTeam);
    AddCredit(wxT("Dominic Mazzoni"), coFounderFormat, roleEmeritusTeam);
    AddCredit(wxT("Markus Meyer"), developerFormat, roleEmeritusTeam);
@@ -171,6 +173,7 @@ void AboutDialog::CreateCreditsList()
    AddCredit(wxT("Alexandre Prokoudine"), documentationAndSupportFormat, roleEmeritusTeam);
    AddCredit(wxT("Peter Sampson"), qaDocumentationAndSupportFormat, roleEmeritusTeam);
    AddCredit(wxT("Martyn Shaw"), developerFormat, roleEmeritusTeam);
+   AddCredit(wxT("Dmitry Vedenko"), developerFormat, roleEmeritusTeam);
    AddCredit(wxT("Bill Wharrie"), documentationAndSupportFormat, roleEmeritusTeam);
 
    // Contributors
@@ -179,6 +182,7 @@ void AboutDialog::CreateCreditsList()
    AddCredit(wxT("Brian Armstrong"), developerFormat, roleContributor);
    AddCredit(wxT("David Avery"), developerFormat, roleContributor);
    AddCredit(wxT("David Bailes"), accessibilityAdvisorFormat, roleContributor);
+   AddCredit(wxT("Brian Beard (Kurtsley)"), developerFormat, roleContributor);
    AddCredit(wxT("William Bland"), developerFormat, roleContributor);
    AddCredit(wxT("Sami Boukortt"), developerFormat, roleContributor);
    AddCredit(wxT("Jeremy R. Brown"), developerFormat, roleContributor);
@@ -199,6 +203,8 @@ void AboutDialog::CreateCreditsList()
    AddCredit(wxT("Daniel Horgan"), developerFormat, roleContributor);
    AddCredit(wxT("David Hostetler"), developerFormat, roleContributor);
    AddCredit(wxT("Edward Hui"), developerFormat, roleContributor);
+   AddCredit(wxT("Vladislav Isaev"), presetsFormat, roleContributor);
+   AddCredit(wxT("Marek Iwaszkiewicz"), presetsFormat, roleContributor);
    AddCredit(wxT("Steve Jolly"), developerFormat, roleContributor);
    AddCredit(wxT("Steven Jones"), developerFormat, roleContributor);
    AddCredit(wxT("Henric Jungheim"), developerFormat, roleContributor);
@@ -223,7 +229,10 @@ void AboutDialog::CreateCreditsList()
    AddCredit(wxT("Benjamin Schwartz"), developerFormat, roleContributor);
    AddCredit(wxT("Cliff Scott"), testerFormat, roleContributor);
    AddCredit(wxT("David R. Sky"), NyquistPluginsFormat, roleContributor);
+   AddCredit(wxT("Joe Souza"), developerFormat, roleContributor);
    AddCredit(wxT("K. Soze"), developerFormat, roleContributor);
+   AddCredit(wxT("Anita Sudan"), roleContributor);
+   AddCredit(wxT("Vitaly Sverchinsky"), developerFormat, roleContributor);
    AddCredit(wxT("Rob Sykes"), developerFormat, roleContributor);
    AddCredit(wxT("Mike Underwood"), developerFormat, roleContributor);
    AddCredit(wxT("Philip Van Baren"), developerFormat, roleContributor);
@@ -480,7 +489,7 @@ void AboutDialog::PopulateAudacityPage( ShuttleGui & S )
    HtmlWindow *html = safenew LinkingHtmlWindow(S.GetParent(), -1,
                                          wxDefaultPosition,
                                          wxSize(ABOUT_DIALOG_WIDTH, 359),
-                                         wxHW_SCROLLBAR_AUTO | wxSUNKEN_BORDER);
+                                         wxHW_SCROLLBAR_AUTO);
    html->SetPage( FormatHtmlText( o.GetString() ) );
 
    /* locate the html renderer where it fits in the dialogue */
@@ -505,7 +514,7 @@ void AboutDialog::PopulateInformationPage( ShuttleGui & S )
    S.StartVerticalLay(2);  // create the window
    HtmlWindow *html = safenew LinkingHtmlWindow(S.GetParent(), -1, wxDefaultPosition,
                            wxSize(ABOUT_DIALOG_WIDTH, 264),
-                           wxHW_SCROLLBAR_AUTO | wxSUNKEN_BORDER);
+                           wxHW_SCROLLBAR_AUTO );
    // create a html pane in it to put the content in.
    auto enabled = XO("Enabled");
    auto disabled = XO("Disabled");
@@ -814,7 +823,7 @@ void AboutDialog::PopulateLicensePage( ShuttleGui & S )
    {
       HtmlWindow* html = safenew LinkingHtmlWindow(
          S.GetParent(), -1, wxDefaultPosition, wxSize(ABOUT_DIALOG_WIDTH, 264),
-         wxHW_SCROLLBAR_AUTO | wxSUNKEN_BORDER);
+         wxHW_SCROLLBAR_AUTO );
 
       html->SetPage(FormatHtmlText(GPL_TEXT()));
 

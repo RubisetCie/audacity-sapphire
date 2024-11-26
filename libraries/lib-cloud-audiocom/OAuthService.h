@@ -18,6 +18,8 @@
 
 #include "Observer.h"
 
+enum class AudiocomTrace;
+
 namespace audacity::cloud::audiocom
 {
 class ServiceConfig;
@@ -29,6 +31,7 @@ struct CLOUD_AUDIOCOM_API AuthStateChangedMessage final
    std::string_view accessToken;
    //! Error message returned by the server in case of oauth error.
    std::string_view errorMessage;
+   AudiocomTrace trace;
    //! Flag that indicates if user is authorised.
    bool authorised;
    bool silent;
@@ -39,6 +42,9 @@ class CLOUD_AUDIOCOM_API OAuthService final :
     public Observer::Publisher<AuthStateChangedMessage>
 {
 public:
+   using AuthSuccessCallback = std::function<void(std::string_view)>;
+   using AuthFailureCallback = std::function<void(unsigned, std::string_view)>;
+
    //! Indicates, that service has a valid access token, i. e. that the user is authorized.
    bool HasAccessToken() const;
    //! Indicates, that the service has a possibly valid refresh token, which can be used
@@ -56,7 +62,9 @@ public:
 
       Callback argument will contain an access token, if any, or an empty view.
    */
-   void ValidateAuth(std::function<void(std::string_view)> completedHandler, bool silent);
+   void ValidateAuth(
+      AuthSuccessCallback completedHandler, AudiocomTrace,
+      bool silent);
 
    //! Handle the OAuth callback
    /*
@@ -71,36 +79,63 @@ public:
       \returns true if the URL was handled, false otherwise.
    */
    bool HandleLinkURI(
-      std::string_view uri,
-      std::function<void(std::string_view)> completedHandler);
+      std::string_view uri, AudiocomTrace,
+      AuthSuccessCallback completedHandler);
 
    //! Removes access and refresh token, notifies about the logout.
-   void UnlinkAccount();
+   void UnlinkAccount(AudiocomTrace);
 
    //! Return the current access token, if any.
    std::string GetAccessToken() const;
 
+   //! Creates a link to authorization request dialog
+   // with selected OAuth provider
+   static std::string MakeOAuthRequestURL(std::string_view authClientId);
+
+   //! Creates a link to authorize audio.com using current auth token
+   std::string MakeAudioComAuthorizeURL(std::string_view userId, std::string_view redirectUrl);
+
+   void Authorize(std::string_view email,
+                  std::string_view password,
+                  AuthSuccessCallback successCallback,
+                  AuthFailureCallback failureCallback,
+                  AudiocomTrace trace);
+
+   //! Register a new user with \p email and \p password
+   void Register(std::string_view email,
+                 std::string_view password,
+                 AuthSuccessCallback successCallback,
+                 AuthFailureCallback failureCallback,
+                 AudiocomTrace trace);
+
 private:
    void AuthorisePassword(
       const ServiceConfig& config, std::string_view userName,
-      std::string_view password,
+      std::string_view password, AudiocomTrace,
       std::function<void(std::string_view)> completedHandler);
 
    void AuthoriseRefreshToken(
       const ServiceConfig& config, std::string_view refreshToken,
-      std::function<void(std::string_view)> completedHandler, bool silent);
+      AudiocomTrace, std::function<void(std::string_view)> completedHandler,
+      bool silent);
 
    void AuthoriseRefreshToken(
-      const ServiceConfig& config,
+      const ServiceConfig& config, AudiocomTrace,
       std::function<void(std::string_view)> completedHandler, bool silent);
 
    void AuthoriseCode(
-      const ServiceConfig& config, std::string_view authorizationCode,
-      std::function<void(std::string_view)> completedHandler);
+      const ServiceConfig& config, std::string_view authorizationCode, bool useAudioComRedirectURI,
+      AudiocomTrace, std::function<void(std::string_view)> completedHandler);
 
    void DoAuthorise(
-      const ServiceConfig& config, std::string_view payload,
+      const ServiceConfig& config, std::string_view payload, AudiocomTrace,
       std::function<void(std::string_view)> completedHandler, bool silent);
+
+   void ParseTokenResponse(std::string_view response,
+                           AuthSuccessCallback successCallback,
+                           AuthFailureCallback failureCallback,
+                           AudiocomTrace trace,
+                           bool silent);
 
    void SafePublish(const AuthStateChangedMessage& message);
 

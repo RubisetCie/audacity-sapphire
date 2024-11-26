@@ -18,10 +18,11 @@
 #include "ProjectHistory.h"
 #include "RefreshCode.h"
 #include "Theme.h"
+#include "TimeStretching.h"
 #include "TimeAndPitchInterface.h"
 #include "TrackPanelMouseEvent.h"
 #include "WaveClip.h"
-#include "WaveClipUtilities.h"
+#include "WaveClipUIUtilities.h"
 #include "WaveTrackUtilities.h"
 #include "wxWidgetsWindowPlacement.h"
 #include <wx/dc.h>
@@ -126,7 +127,7 @@ UIHandle::Result ClipPitchAndSpeedButtonHandle::DoRelease(
          ProjectHistory::Get(*pProject).PushState(
             XO("Reset Clip Pitch"), XO("Reset Clip Pitch"));
       }
-      else if (!WaveTrackUtilities::SetClipStretchRatio(*mTrack, *mClip, 1))
+      else if (!TimeStretching::SetClipStretchRatio(*mTrack, *mClip, 1))
       {
          BasicUI::ShowErrorDialog(
             wxWidgetsWindowPlacement { pParent }, XO("Not enough space"),
@@ -136,7 +137,7 @@ UIHandle::Result ClipPitchAndSpeedButtonHandle::DoRelease(
       }
       else
       {
-         WaveClipUtilities::SelectClip(*pProject, *mClip);
+         WaveClipUIUtilities::SelectClip(*pProject, *mClip);
          ProjectHistory::Get(*pProject).PushState(
             XO("Reset Clip Speed"), XO("Reset Clip Speed"));
       }
@@ -176,7 +177,7 @@ HitTestPreview ClipPitchAndSpeedButtonHandle::Preview(
 
 void ClipPitchAndSpeedButtonHandle::DoDraw(const wxRect& rect, wxDC& dc)
 {
-   const ClipInterface& clip = *mClip->GetClip(0);
+   const ClipInterface& clip = *mClip;
    ClipButtonDrawingArgs args { rect, clip, dc };
    if (mType == Type::Pitch)
       ClipButtonSpecializations<ClipButtonId::Pitch>::DrawOnClip(args);
@@ -188,7 +189,7 @@ int ClipButtonSpecializations<ClipButtonId::Pitch>::GetWidth(
    const ClipInterface& clip)
 {
    // If we are to show some decimals, reserve a bit more space.
-   return clip.GetCentShift() % 100 == 0 ? 30 : 50;
+   return clip.GetCentShift() % 100 == 0 ? 32 : 55;
 }
 
 int ClipButtonSpecializations<ClipButtonId::Speed>::GetWidth(

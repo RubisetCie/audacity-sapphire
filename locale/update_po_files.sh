@@ -1,8 +1,11 @@
 #!/bin/sh
-# Run this script with locale as the current directory
 set -o errexit
+
+# Enter the script directory
+CDPATH= cd -- "$(dirname -- "$0")"
+
 echo ";; Recreating audacity.pot using .h, .cpp and .mm files"
-for path in ../modules/mod-* ../libraries/lib-* ../include ../src ../crashreports ; do
+for path in ../modules/* ../libraries/lib-* ../include ../src ../crashreports ; do
    find $path -name \*.h -o -name \*.cpp -o -name \*.mm
 done | LANG=c sort | \
 sed -E 's/\.\.\///g' |\
@@ -15,7 +18,7 @@ xargs xgettext \
 --add-location=file  \
 --copyright-holder='Audacity Team' \
 --package-name="audacity" \
---package-version='3.5.0' \
+--package-version='3.6.0' \
 --msgid-bugs-address="audacity-translation@lists.sourceforge.net" \
 --add-location=file -L C -o audacity.pot 
 echo ";; Adding nyquist files to audacity.pot"
@@ -30,7 +33,7 @@ xargs xgettext \
 --add-location=file  \
 --copyright-holder='Audacity Team' \
 --package-name="audacity" \
---package-version='3.5.0' \
+--package-version='3.6.0' \
 --msgid-bugs-address="audacity-translation@lists.sourceforge.net" \
 --add-location=file -L Lisp -j -o audacity.pot 
 echo ";; Adding resource files to audacity.pot"
@@ -46,7 +49,7 @@ xargs xgettext \
 --add-location=file  \
 --copyright-holder='Audacity Team' \
 --package-name="audacity" \
---package-version='3.5.0' \
+--package-version='3.6.0' \
 --msgid-bugs-address="audacity-translation@lists.sourceforge.net" \
 -j -o audacity.pot 
 
@@ -56,7 +59,7 @@ fi
 echo ";; Updating the .po files - Updating Project-Id-Version"
 for i in *.po; do
     sed -e '/^"Project-Id-Version:/c\
-    "Project-Id-Version: audacity 3.5.0\\n"' $i > TEMP; mv TEMP $i
+    "Project-Id-Version: audacity 3.6.0\\n"' $i > TEMP; mv TEMP $i
 done
 echo ";; Updating the .po files"
 sed 's/.*/echo "msgmerge --lang=& &.po audacity.pot -o &.po";\

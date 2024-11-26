@@ -2,12 +2,13 @@
 #[[
 Library, responsible for handling custom URL scemas.
 ]]
+
 set( SOURCES
    URLSchemesRegistry.cpp
    URLSchemesRegistry.h
 
    $<$<PLATFORM_ID:Windows>:win/SchemeRegistrar.cpp>
-   $<$<PLATFORM_ID:Darwin>:macos/SchemeRegistrar.cpp>
+   $<$<NOT:$<PLATFORM_ID:Windows>>:SchemeRegistrar.cpp>
 )
 
 set( LIBRARIES

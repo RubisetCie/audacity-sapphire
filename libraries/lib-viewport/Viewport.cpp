@@ -10,6 +10,7 @@ Paul Licameli split from ProjectWindow.cpp
 #include "Viewport.h"
 
 #include "BasicUI.h"
+#include "PendingTracks.h"
 #include "PlayableTrack.h" // just for AudioTrack
 #include "Project.h"
 #include "ProjectSnap.h"
@@ -280,11 +281,12 @@ void Viewport::UpdateScrollbarsForTracks()
    const bool oldhstate = (viewInfo.GetScreenEndTime() - viewInfo.hpos) < total;
    const bool oldvstate = panelHeight < totalHeight;
 
+   auto &pendingTracks = PendingTracks::Get(mProject);
    const auto LastTime = std::accumulate(tracks.begin(), tracks.end(),
       viewInfo.selectedRegion.t1(),
-      [](double acc, const Track *track){
+      [&pendingTracks](double acc, const Track *track){
          // Iterate over pending changed tracks if present.
-         track = track->SubstitutePendingChangedTrack().get();
+         track = &pendingTracks.SubstitutePendingChangedTrack(*track);
          return std::max(acc, track->GetEndTime());
       });
 
@@ -333,11 +335,13 @@ void Viewport::UpdateScrollbarsForTracks()
       (viewInfo.GetScreenEndTime() - viewInfo.hpos) < total;
    bool newvstate = panelHeight < totalHeight;
 
+   /* Leo: This has been broken forever (2.0.0/Win11) 
+      and causes the bars to not show on Lin since 3.2. #2937  */
    // Hide scrollbar thumbs and buttons if not scrollable
-   if (mpCallbacks) {
-      mpCallbacks->ShowHorizontalScrollbar(newhstate);
-      mpCallbacks->ShowVerticalScrollbar(newvstate);
-   }
+   // if (mpCallbacks) {
+   //    mpCallbacks->ShowHorizontalScrollbar(newhstate);
+   //    mpCallbacks->ShowVerticalScrollbar(newvstate);
+   // }
 
    // When not scrollable in either axis, align viewport to top or left and
    // repaint it later
@@ -386,8 +390,10 @@ void Viewport::UpdateScrollbarsForTracks()
          totalHeight / scrollStep,
          panelHeight / scrollStep, true);
 
-   rescroll = (rescroll &&
-       (viewInfo.GetScreenEndTime() - viewInfo.hpos) < total);
+   //Leo: this needs to be rescroll = rescroll && (... 
+   //if scrollbar hiding is to be reimplemented.
+   //Or maybe not. It's all broken anyway.  #2937
+   rescroll = (viewInfo.GetScreenEndTime() - viewInfo.hpos) < total;
    Publish({ (refresh || rescroll),
       (oldhstate != newhstate || oldvstate != newvstate), false });
 }
@@ -428,7 +434,7 @@ void Viewport::DoScroll()
 
    auto width = viewInfo.GetTracksUsableWidth();
    const auto zoom = viewInfo.GetZoom();
-   viewInfo.hpos = std::clamp(sbarH / zoom, lowerBound, total - width / zoom);
+   viewInfo.hpos = std::clamp(sbarH / zoom, lowerBound, std::max(lowerBound, total - width / zoom));
 
    if (mpCallbacks && mpCallbacks->MayScrollBeyondZero()) {
       enum { SCROLL_PIXEL_TOLERANCE = 10 };
@@ -471,7 +477,6 @@ void Viewport::ZoomFitHorizontallyAndShowTrack(Track *pTrack)
 
 void Viewport::ShowTrack(const Track &track)
 {
-   assert(track.IsLeader());
    auto &viewInfo = ViewInfo::Get(mProject);
 
    int trackTop = 0;

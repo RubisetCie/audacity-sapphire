@@ -19,7 +19,7 @@ Paul Licameli split from Mix.cpp
 using WaveTrackConstArray = std::vector < std::shared_ptr < const WaveTrack > >;
 
 //TODO-MB: wouldn't it make more sense to DELETE the time track after 'mix and render'?
-TrackListHolder MixAndRender(const TrackIterRange<const WaveTrack> &trackRange,
+Track::Holder MixAndRender(const TrackIterRange<const WaveTrack> &trackRange,
    const Mixer::WarpOptions &warpOptions,
    const wxString &newTrackName,
    WaveTrackFactory *trackFactory,
@@ -36,14 +36,13 @@ TrackListHolder MixAndRender(const TrackIterRange<const WaveTrack> &trackRange,
 
    auto first = *trackRange.begin();
    assert(first); // because the range is known to be nonempty
-   assert(first->IsLeader()); // precondition on trackRange
 
    // this only iterates tracks which are relevant to this function, i.e.
    // selected WaveTracks. The tracklist is (confusingly) the list of all
    // tracks in the project
 
-   int numWaves = 0; /* number of wave tracks in the selection */
-   int numMono = 0;  /* number of mono, centre-panned wave tracks in selection*/
+   size_t numWaves = 0; /* number of wave tracks in the selection */
+   size_t numMono = 0;  /* number of mono, centre-panned wave tracks in selection*/
    for (auto wt : trackRange) {
       numWaves += wt->NChannels();
       if (IsMono(*wt) && wt->GetPan() == 0)
@@ -91,14 +90,13 @@ TrackListHolder MixAndRender(const TrackIterRange<const WaveTrack> &trackRange,
    }
 
    /* create the destination track (NEW track) */
-   if (numWaves == (int)TrackList::NChannels(*first))
+   if (numWaves == first->NChannels())
       oneinput = true;
    // only one input track (either 1 mono or one linked stereo pair)
 
-   auto result = trackFactory->Create(mono ? 1 : 2, *first);
-   auto mix = static_cast<WaveTrack*>(*result->begin());
+   auto mix = trackFactory->Create(mono ? 1 : 2, *first);
    mix->SetPan(0);
-   mix->SetGain(1.0f);
+   mix->SetVolume(1.0f);
    mix->SetRate(rate);
    mix->ConvertToSampleFormat(format);
    if(!oneinput)
@@ -114,10 +112,10 @@ TrackListHolder MixAndRender(const TrackIterRange<const WaveTrack> &trackRange,
       endTime = mixEndTime;
    }
 
-   Mixer mixer(move(waveArray),
+   Mixer mixer(
+      std::move(waveArray), std::nullopt,
       // Throw to abort mix-and-render if read fails:
-      true, warpOptions,
-      startTime, endTime, mono ? 1 : 2, maxBlockLen, false,
+      true, warpOptions, startTime, endTime, mono ? 1 : 2, maxBlockLen, false,
       rate, format);
 
    using namespace BasicUI;
@@ -135,7 +133,7 @@ TrackListHolder MixAndRender(const TrackIterRange<const WaveTrack> &trackRange,
 
          for(auto channel : mix->Channels())
          {
-            auto buffer = mixer.GetBuffer(channel->ReallyGetChannelIndex());
+            auto buffer = mixer.GetBuffer(channel->GetChannelIndex());
             channel->AppendBuffer(buffer, format, blockLen, 1, effectiveFormat);
          }
 
@@ -163,16 +161,17 @@ TrackListHolder MixAndRender(const TrackIterRange<const WaveTrack> &trackRange,
       RealtimeEffectList::Get(*mix).Clear();
    }
 
-   return result;
+   return mix;
 }
 
 #include "RealtimeEffectList.h"
 #include "RealtimeEffectState.h"
 
+template<typename Host>
 std::vector<MixerOptions::StageSpecification>
-GetEffectStages(const WaveTrack &track)
+GetEffectStagesImpl(const Host &host)
 {
-   auto &effects = RealtimeEffectList::Get(track);
+   auto &effects = RealtimeEffectList::Get(host);
    if (!effects.IsActive())
       return {};
    std::vector<MixerOptions::StageSpecification> result;
@@ -193,6 +192,18 @@ GetEffectStages(const WaveTrack &track)
    return result;
 }
 
+std::vector<MixerOptions::StageSpecification>
+GetEffectStages(const WaveTrack& track)
+{
+   return GetEffectStagesImpl(track);
+}
+
+std::vector<MixerOptions::StageSpecification>
+GetMasterEffectStages(const AudacityProject& project)
+{
+   return GetEffectStagesImpl(project);
+}
+
 /* The following registration objects need a home at a higher level to avoid
  dependency either way between WaveTrack or RealtimeEffectList, which need to
  be in different libraries that do not depend either on the other.
@@ -200,7 +211,7 @@ GetEffectStages(const WaveTrack &track)
  WaveTrack, like AudacityProject, has a registry for attachment of serializable
  data.  RealtimeEffectList exposes an interface for serialization.  This is
  where we connect them.
- 
+
  There is also registration for serialization of the project-wide master effect
  stack (whether or not UI makes it available).
  */
@@ -222,6 +233,5 @@ static WaveTrackIORegistry::ObjectReaderEntry waveTrackAccessor {
 
 static WaveTrackIORegistry::ObjectWriterEntry waveTrackWriter {
 [](const WaveTrack &track, auto &xmlFile) {
-   if (track.IsLeader())
-      RealtimeEffectList::Get(track).WriteXML(xmlFile);
+   RealtimeEffectList::Get(track).WriteXML(xmlFile);
 } };
