@@ -57,10 +57,6 @@ std::vector<UIHandlePtr> CommonTrackControls::HitTest
       mMinimizeHandle, state, rect, this)))
       results.push_back(result);
 
-   if (NULL != (result = SelectButtonHandle::HitTest(
-      mSelectButtonHandle, state, rect, this)))
-      results.push_back(result);
-
    if (results.empty()) {
       if (NULL != (result = TrackSelectHandle::HitAnywhere(
          mSelectHandle, FindTrack())))
@@ -122,9 +118,9 @@ BEGIN_POPUP_MENU(TrackMenuTable)
       [up]( PopupMenuHandler &handler, wxMenu &menu, int id ){
          auto pData = static_cast<TrackMenuTable&>( handler ).mpData;
          const auto &tracks = TrackList::Get( pData->project );
-         Track *const pTrack = pData->pTrack;
-         menu.Enable( id,
-            up ? tracks.CanMoveUp(pTrack) : tracks.CanMoveDown(pTrack) );
+         auto &track = pData->track;
+         menu.Enable(id,
+            up ? tracks.CanMoveUp(track) : tracks.CanMoveDown(track));
       };
    };
       //First section in the menu doesn't need BeginSection/EndSection
@@ -219,28 +215,25 @@ void SetTrackNameCommand::PopulateOrExchange(ShuttleGui & S)
 
 void TrackMenuTable::OnSetName(wxCommandEvent &)
 {
-   Track *const pTrack = mpData->pTrack;
-   if (pTrack)
+   auto &track = mpData->track;
+   AudacityProject *const proj = &mpData->project;
+   const wxString oldName = track.GetName();
+
+   SetTrackNameCommand Command;
+   Command.mName = oldName;
+   // Bug 1837 : We need an OK/Cancel result if we are to enter a blank string.
+   bool bResult = Command.PromptUser(*proj);
+   if (bResult)
    {
-      AudacityProject *const proj = &mpData->project;
-      const wxString oldName = pTrack->GetName();
+      wxString newName = Command.mName;
+      track.SetName(newName);
 
-      SetTrackNameCommand Command;
-      Command.mName = oldName;
-      // Bug 1837 : We need an OK/Cancel result if we are to enter a blank string.
-      bool bResult = Command.PromptUser( &GetProjectFrame( *proj ) );
-      if (bResult) 
-      {
-         wxString newName = Command.mName;
-         pTrack->SetName(newName);
+      ProjectHistory::Get( *proj )
+         .PushState(
+            XO("Renamed '%s' to '%s'").Format( oldName, newName ),
+            XO("Name Change"));
 
-         ProjectHistory::Get( *proj )
-            .PushState(
-               XO("Renamed '%s' to '%s'").Format( oldName, newName ),
-               XO("Name Change"));
-
-         mpData->result = RefreshCode::RefreshAll;
-      }
+      mpData->result = RefreshCode::RefreshAll;
    }
 }
 
@@ -261,7 +254,7 @@ void TrackMenuTable::OnMoveTrack(wxCommandEvent &event)
       choice = TrackUtilities::OnMoveBottomID; break;
    }
 
-   TrackUtilities::DoMoveTrack(*project, mpData->pTrack, choice);
+   TrackUtilities::DoMoveTrack(*project, mpData->track, choice);
 
    // MoveTrack already refreshed TrackPanel, which means repaint will happen.
    // This is a harmless redundancy:
@@ -274,13 +267,13 @@ unsigned CommonTrackControls::DoContextMenu(
 {
    using namespace RefreshCode;
    wxRect buttonRect;
-   CommonTrackInfo::GetTitleBarRect(rect, buttonRect);
+   CommonTrackInfo::GetTrackMenuButtonRect(rect, buttonRect);
 
    auto track = FindTrack();
    if (!track)
       return RefreshNone;
 
-   InitMenuData data{ *pProject, track.get(), pParent, RefreshNone };
+   InitMenuData data{ *pProject, *track, pParent, RefreshNone };
 
    const auto pTable = &TrackMenuTable::Instance();
    auto pMenu = PopupMenuTable::BuildMenu(pTable, &data);
@@ -365,9 +358,7 @@ void CommonTrackControls::Draw(
       // Given rectangle excludes left and right margins, and encompasses a
       // channel group of tracks, plus the resizer area below
       auto pTrack = FindTrack();
-      // First counteract DrawingArea() correction
-      wxRect rect{ rect_.x, rect_.y, rect_.width - 1, rect_.height };
-   
+
       // Vaughan, 2010-08-24: No longer doing this.
       // Draw sync-lock tiles in ruler area.
       //if (SyncLock::IsSyncLockSelected(t)) {
@@ -379,50 +370,14 @@ void CommonTrackControls::Draw(
 
       if (pTrack)
          // Draw things within the track control panel
-         CommonTrackInfo::DrawItems( context, rect, *pTrack );
-
-      //mTrackInfo.DrawBordersWithin( dc, rect, *t );
+         CommonTrackInfo::DrawItems( context, rect_, *pTrack );
    }
-
-   // Some old cut-and-paste legacy from TrackPanel.cpp here:
-#undef USE_BEVELS
-#ifdef USE_BEVELS
-   // This branch is not now used
-   // PRL:  todo:  banish magic numbers.
-   // PRL: vrul was the x coordinate of left edge of the vertical ruler.
-   // PRL: bHasMuteSolo was true iff the track was WaveTrack.
-   if( bHasMuteSolo )
-   {
-      int ylast = rect.height-20;
-      int ybutton = wxMin(32,ylast-17);
-      int ybuttonEnd = 67;
-
-      fill=wxRect( rect.x+1, rect.y+17, vrul-6, ybutton);
-      AColor::BevelTrackInfo( *dc, true, fill );
-   
-      if( ybuttonEnd < ylast ){
-         fill=wxRect( rect.x+1, rect.y+ybuttonEnd, fill.width, ylast - ybuttonEnd);
-         AColor::BevelTrackInfo( *dc, true, fill );
-      }
-   }
-   else
-   {
-      fill=wxRect( rect.x+1, rect.y+17, vrul-6, rect.height-37);
-      AColor::BevelTrackInfo( *dc, true, fill );
-   }
-#endif
-
 }
 
-wxRect CommonTrackControls::DrawingArea(
-   TrackPanelDrawingContext &,
-   const wxRect &rect, const wxRect &, unsigned iPass )
+wxRect CommonTrackControls::DrawingArea(TrackPanelDrawingContext&, const wxRect& rect,
+   const wxRect&, unsigned iPass)
 {
-   if ( iPass == TrackArtist::PassControls )
-      // Some bevels spill out right
-      return { rect.x, rect.y, rect.width + 1, rect.height };
-   else
-      return rect;
+   return rect;
 }
 
 const TCPLines &CommonTrackControls::GetTCPLines() const

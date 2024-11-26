@@ -20,6 +20,11 @@
 
 namespace BasicUI { class ProgressDialog; }
 
+namespace au::effects {
+class EffectsProvider;
+class EffectExecutionScenario;
+}
+
 class AudacityProject;
 class Track;
 
@@ -34,6 +39,8 @@ public:
    bool PreviewsFullSelection() const { return mPreviewFullSelection; }
 
    void SetTracks(TrackList *pTracks);
+
+   double GetDefaultDuration();
 
    //! Called when Preview() starts, to allow temporary effect state changes
    /*!
@@ -54,6 +61,10 @@ public:
    static InstanceFinder DefaultInstanceFinder(EffectPlugin &plugin);
 
 protected:
+   //! NOTE Temporary solution
+    friend class au::effects::EffectsProvider;
+    friend class au::effects::EffectExecutionScenario;
+
    //! After Init(), tell whether Process() should be skipped
    /*
      Typically this is only useful in automation, for example
@@ -91,18 +102,14 @@ protected:
    const TrackList *inputTracks() const { return mTracks.get(); }
    const AudacityProject *FindProject() const;
 
-#ifdef EXPERIMENTAL_SPECTRAL_EDITING
    double         mF0{};
    double         mF1{};
-#endif
 
    wxArrayString  mPresetNames;
    unsigned       mUIFlags{ 0 };
 
 private:
    friend class Effect;
-
-   double GetDefaultDuration();
 
 public:
    // Public until we can move these fields out of here into EffectContext

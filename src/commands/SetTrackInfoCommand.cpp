@@ -10,8 +10,8 @@
 ******************************************************************//**
 
 \file SetTrackCommand.cpp
-\brief Definitions for SetTrackCommand built up from 
-SetChannelsBase, SetTrackBase, SetTrackStatusCommand, SetTrackAudioCommand and
+\brief Definitions for SetTrackCommand built up from
+SetTrackBase, SetTrackStatusCommand, SetTrackAudioCommand and
 SetTrackVisualsCommand
 
 \class SetTrackBase
@@ -20,17 +20,17 @@ loops over selected tracks. Subclasses override ApplyInner() to change
 one track.
 
 \class SetTrackStatusCommand
-\brief A SetChannelsBase that sets name, selected and focus.
+\brief A SetTrackBase that sets name, selected and focus.
 
 \class SetTrackAudioCommand
-\brief A SetChannelsBase that sets pan, gain, mute and solo.
+\brief A SetTrackBase that sets pan, volume, mute and solo.
 
 \class SetTrackVisualsCommand
-\brief A SetChannelsBase that sets appearance of a track.
+\brief A SetTrackBase that sets appearance of a track.
 
 \class SetTrackCommand
-\brief A SetChannelsBase that combines SetTrackStatusCommand,
-SetTrackAudioCommand and SetTrackVisualsCommand.
+\brief A SetTrackBase that combines SetTrackStatusCommand,
+SetTrackAudioConmmand and SetTrackVisualsCommand.
 
 *//*******************************************************************/
 
@@ -44,14 +44,17 @@ SetTrackAudioCommand and SetTrackVisualsCommand.
 #include "Project.h"
 #include "TrackFocus.h"
 #include "../TrackPanel.h"
+#include "tracks/playabletrack/wavetrack/ui/WaveformAppearance.h"
+#include "WaveformSettings.h"
 #include "WaveTrack.h"
-#include "../prefs/WaveformSettings.h"
-#include "../prefs/SpectrogramSettings.h"
+#include "SpectrogramSettings.h"
 #include "SettingsVisitor.h"
 #include "ShuttleGui.h"
 #include "../tracks/playabletrack/wavetrack/ui/WaveChannelView.h"
-#include "../tracks/playabletrack/wavetrack/ui/WaveChannelViewConstants.h"
+#include "WaveChannelViewConstants.h"
+#include "../tracks/playabletrack/wavetrack/ui/WaveformView.h"
 #include "CommandContext.h"
+#include "prefs/WaveformScale.h"
 
 bool SetTrackBase::Apply(const CommandContext & context)
 {
@@ -133,7 +136,7 @@ bool SetTrackAudioCommand::VisitSettings( SettingsVisitorBase<Const> & S ){
    S.OptionalN( bHasMute           ).Define(     bMute,           wxT("Mute"),       false );
    S.OptionalN( bHasSolo           ).Define(     bSolo,           wxT("Solo"),       false );
 
-   S.OptionalN( bHasGain           ).Define(     mGain,           wxT("Gain"),       0.0,  -36.0, 36.0);
+   S.OptionalN( bHasVolume         ).Define(     mVolume,         wxT("Volume"),     0.0,  -36.0, 36.0);
    S.OptionalN( bHasPan            ).Define(     mPan,            wxT("Pan"),        0.0, -100.0, 100.0);
    return true;
 };
@@ -156,7 +159,7 @@ void SetTrackAudioCommand::PopulateOrExchange(ShuttleGui & S)
    S.StartMultiColumn(3, wxEXPAND);
    {
       S.SetStretchyCol( 2 );
-      S.Optional( bHasGain        ).TieSlider(          XXO("Gain:"),          mGain, 36.0,-36.0);
+      S.Optional( bHasVolume      ).TieSlider(          XXO("Volume:"),        mVolume, 36.0,-36.0);
       S.Optional( bHasPan         ).TieSlider(          XXO("Pan:"),           mPan,  100.0, -100.0);
    }
    S.EndMultiColumn();
@@ -168,8 +171,8 @@ bool SetTrackAudioCommand::ApplyInner(const CommandContext & context, Track &t)
    auto wt = dynamic_cast<WaveTrack *>(&t);
    auto pt = dynamic_cast<PlayableTrack *>(&t);
 
-   if (wt && bHasGain)
-      wt->SetGain(DB_TO_LINEAR(mGain));
+   if (wt && bHasVolume)
+      wt->SetVolume(DB_TO_LINEAR(mVolume));
    if (wt && bHasPan)
       wt->SetPan(mPan/100.0);
 
@@ -248,7 +251,7 @@ static EnumValueSymbols DiscoverSubViewTypes()
 }
 
 template<bool Const>
-bool SetTrackVisualsCommand::VisitSettings( SettingsVisitorBase<Const> & S ){ 
+bool SetTrackVisualsCommand::VisitSettings( SettingsVisitorBase<Const> & S ){
    S.OptionalN( bHasHeight         ).Define(     mHeight,         wxT("Height"),     120, 44, 2000 );
 
    {
@@ -285,7 +288,7 @@ void SetTrackVisualsCommand::PopulateOrExchange(ShuttleGui & S)
       S.Optional( bHasHeight      ).TieNumericTextBox(  XXO("Height:"),        mHeight );
       S.Optional( bHasColour      ).TieChoice(          XXO("Color:"),         mColour,
          Msgids(  kColourStrings, nColours ) );
-      
+
       {
          auto symbols = DiscoverSubViewTypes();
          auto typeNames = transform_container<TranslatableStrings>(
@@ -326,18 +329,19 @@ bool SetTrackVisualsCommand::ApplyInner(
    const auto wt = dynamic_cast<WaveTrack *>(&t);
    if (!wt)
       return true;
+   auto &wc = **wt->Channels().begin();
    //auto pt = dynamic_cast<PlayableTrack *>(t);
    static const double ZOOMLIMIT = 0.001f;
 
    if (bHasColour)
-      wt->SetWaveColorIndex(mColour);
+      WaveformAppearance::Get(*wt).SetColorIndex(mColour);
 
    if (bHasHeight)
-      for (auto pChannel : t.Channels<WaveTrack>())
+      for (auto pChannel : t.Channels<WaveChannel>())
          ChannelView::Get(*pChannel).SetExpandedHeight(mHeight);
 
    if (bHasDisplayType) {
-      auto &view = WaveChannelView::Get(*wt);
+      auto &view = WaveChannelView::Get(wc);
       auto &all = WaveChannelSubViewType::All();
       if (mDisplayType < all.size())
          view.SetDisplay( all[ mDisplayType ].id );
@@ -397,9 +401,9 @@ bool SetTrackVisualsCommand::ApplyInner(
    if (bHasUseSpecPrefs) {
       if (bUseSpecPrefs)
          // reset it, and next we will be getting the defaults.
-         SpectrogramSettings::Reset(*wt);
+         SpectrogramSettings::Reset(wc);
       else
-         SpectrogramSettings::Own(*wt);
+         SpectrogramSettings::Own(wc);
    }
    auto &settings = SpectrogramSettings::Get(*wt);
    if (wt && bHasSpectralSelect)

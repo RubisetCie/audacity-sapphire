@@ -5,7 +5,7 @@
 
 #include "LabelTrackView.h"
 #include "../../ui/TimeShiftHandle.h"
-#include "../../../LabelTrack.h"
+#include "LabelTrack.h"
 #include "ViewInfo.h"
 
 class LabelTrackShifter final : public TrackShifter {
@@ -31,9 +31,8 @@ public:
    ~LabelTrackShifter() override
    {
    }
-   //! Label track is always leader; satisfying the post
    Track &GetTrack() const override { return *mpTrack; }
-   
+
    static inline size_t& GetIndex(ChannelGroupInterval &interval)
    {
       return static_cast<LabelTrack::Interval&>(interval).index;
@@ -79,7 +78,7 @@ public:
       }
    }
 
-   void SelectInterval(const ChannelGroupInterval &interval) override
+   void SelectInterval(TimeInterval interval) override
    {
       CommonSelectInterval(interval);
    }
@@ -99,10 +98,13 @@ public:
       SelectedRegion region;
       wxString title;
       MovingInterval(double start, double end, const LabelStruct &label)
-         : ChannelGroupInterval{ start, end }
+         : start{ start }, end{ end }
          , region{ label.selectedRegion }
          , title{ label.title }
       {}
+      double Start() const override { return start; }
+      double End() const override { return end; }
+      const double start, end;
    };
 
    Intervals Detach() override

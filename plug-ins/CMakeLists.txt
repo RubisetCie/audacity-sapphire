@@ -6,7 +6,7 @@ message( STATUS "========== Configuring ${TARGET} ==========" )
 
 def_vars()
 
-list( APPEND SOURCES
+set( SOURCES
    ShelfFilter.ny
    SpectralEditMulti.ny
    SpectralEditParametricEQ.ny
@@ -21,7 +21,7 @@ list( APPEND SOURCES
    equalabel.ny
    highpass.ny
    label-sounds.ny
-   limiter.ny
+   legacy-limiter.ny
    lowpass.ny
    noisegate.ny
    notch.ny

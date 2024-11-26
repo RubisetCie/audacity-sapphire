@@ -1,8 +1,11 @@
 #[[
-A library providing a time-stretching-capable implementation of `PlayableSequence`.
+A library providing a time-stretching-capable implementation of
+`PlayableSequence`.
 
-Please refer to this directory's readme for a presentation of the constraints inherent to such an implementation.
+Please refer to this directory's readme for a presentation of the constraints
+inherent to such an implementation.
 ]]
+
 set( SOURCES
    AudioSegment.cpp
    AudioSegment.h
@@ -23,10 +26,13 @@ set( SOURCES
    StretchingSequence.h
    ClipTimeAndPitchSource.cpp
    ClipTimeAndPitchSource.h
+   TempoChange.cpp
+   TempoChange.h
 )
 set( LIBRARIES
-   lib-time-and-pitch
+   lib-channel
    lib-mixer
+   lib-time-and-pitch
 )
 audacity_library( lib-stretching-sequence "${SOURCES}" "${LIBRARIES}"
    "" ""

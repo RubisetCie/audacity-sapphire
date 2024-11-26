@@ -31,6 +31,7 @@ lib-src/twolame/doc/html/Doxyfile
 lib-src/twolame/libtwolame/config.h
 locale/POTFILES
 src/audacity.desktop
+src/audacity-url-handler.desktop
 src/RevisionIdent.h
 src/configunix.h
 src/configwin.h
@@ -173,7 +174,13 @@ win/xaudacity.ico
 linuxdeploy/*
 appimagetool/*
 
+build-*
+build.release/
+build.debug/
+build.install/
+build.artifacts/
 .build.*/
+.cache/
 .conan/
 .debug/
 

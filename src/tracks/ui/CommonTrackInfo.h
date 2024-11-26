@@ -12,14 +12,16 @@ Paul Licameli split from TrackInfo.h
 
 #include "TrackInfo.h"
 
+class Channel;
 class wxPoint;
-
-static const int TitleSoloBorderOverlap = 1;
 
 namespace CommonTrackInfo
 {
    using TCPLine = TrackInfo::TCPLine;
    using TCPLines = TrackInfo::TCPLines;
+
+   constexpr static auto Margin = 4;
+   constexpr static auto ToolButtonSize = 16;
 
    AUDACITY_DLL_API
    unsigned MinimumTrackHeight();
@@ -41,7 +43,7 @@ namespace CommonTrackInfo
 
    AUDACITY_DLL_API
    void DrawCloseButton(TrackPanelDrawingContext &context, const wxRect &bev,
-      const Track *pTrack, UIHandle *target);
+      const Channel *pChannel, UIHandle *target);
 
    AUDACITY_DLL_API
    void CloseTitleDrawFunction
@@ -49,7 +51,7 @@ namespace CommonTrackInfo
         const wxRect &rect, const Track *pTrack );
 
    AUDACITY_DLL_API
-   void MinimizeSyncLockDrawFunction
+   void SyncLockDrawFunction
       ( TrackPanelDrawingContext &context,
         const wxRect &rect, const Track *pTrack );
 
@@ -60,22 +62,22 @@ namespace CommonTrackInfo
    void GetCloseBoxRect(const wxRect & rect, wxRect &dest);
 
    AUDACITY_DLL_API
-   void GetTitleBarHorizontalBounds( const wxRect & rect, wxRect &dest );
+   void GetTrackTitleHorizontalBounds( const wxRect & rect, wxRect &dest );
    AUDACITY_DLL_API
-   void GetTitleBarRect(const wxRect & rect, wxRect &dest);
+   void GetTrackTitleRect(const wxRect & rect, wxRect &dest);
 
    AUDACITY_DLL_API
-   void GetSliderHorizontalBounds( const wxPoint &topleft, wxRect &dest );
+   void GetSliderHorizontalBounds( const wxRect &rect, wxRect &dest );
+
+   AUDACITY_DLL_API
+   void GetTrackMenuButtonBounds(const wxRect &rect, wxRect &dest);
+   AUDACITY_DLL_API
+   void GetTrackMenuButtonRect(const wxRect &rect, wxRect &dest);
 
    AUDACITY_DLL_API
    void GetMinimizeHorizontalBounds( const wxRect &rect, wxRect &dest );
    AUDACITY_DLL_API
    void GetMinimizeRect(const wxRect & rect, wxRect &dest);
-
-   AUDACITY_DLL_API
-   void GetSelectButtonHorizontalBounds( const wxRect &rect, wxRect &dest );
-   AUDACITY_DLL_API
-   void GetSelectButtonRect(const wxRect & rect, wxRect &dest);
 
    AUDACITY_DLL_API
    void GetSyncLockHorizontalBounds( const wxRect &rect, wxRect &dest );

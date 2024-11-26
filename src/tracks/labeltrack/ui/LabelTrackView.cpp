@@ -15,12 +15,13 @@ Paul Licameli split from TrackPanel.cpp
 #include "LabelGlyphHandle.h"
 #include "LabelTextHandle.h"
 
-#include "../../../LabelTrack.h"
+#include "LabelTrack.h"
 
 #include "AColor.h"
 #include "../../../widgets/BasicMenu.h"
 #include "AllThemeResources.h"
 #include "../../../HitTestResult.h"
+#include "PendingTracks.h"
 #include "Project.h"
 #include "ProjectHistory.h"
 #include "ProjectNumericFormats.h"
@@ -96,8 +97,8 @@ void LabelTrackView::Index::SetModified(bool modified)
    mModified = modified;
 }
 
-LabelTrackView::LabelTrackView( const std::shared_ptr<Track> &pTrack )
-   : CommonChannelView{ pTrack, 0 }
+LabelTrackView::LabelTrackView(const std::shared_ptr<Channel> &pChannel)
+   : CommonChannelView{ pChannel }
 {
    ResetFont();
    CreateCustomGlyphs();
@@ -112,13 +113,15 @@ LabelTrackView::~LabelTrackView()
 {
 }
 
-void LabelTrackView::Reparent( const std::shared_ptr<Track> &parent )
+void LabelTrackView::Reparent(
+   const std::shared_ptr<Track> &parent, size_t iChannel)
 {
+   assert(iChannel == 0);
    auto oldParent = FindLabelTrack();
    auto newParent = track_cast<LabelTrack*>(parent.get());
    if (oldParent.get() != newParent)
       BindTo( newParent );
-   CommonChannelView::Reparent(parent);
+   CommonChannelView::Reparent(parent, iChannel);
 }
 
 void LabelTrackView::BindTo( LabelTrack *pParent )
@@ -140,9 +143,10 @@ void LabelTrackView::BindTo( LabelTrack *pParent )
    });
 }
 
-void LabelTrackView::CopyTo(Track &track) const
+void LabelTrackView::CopyTo(Track &track, size_t iChannel) const
 {
-   ChannelView::CopyTo(track);
+   assert(iChannel == 0);
+   ChannelView::CopyTo(track, iChannel);
    auto &other = ChannelView::Get(*track.GetChannel(0));
    if (const auto pOther = dynamic_cast<const LabelTrackView*>(&other)) {
       pOther->mNavigationIndex = mNavigationIndex;
@@ -165,7 +169,7 @@ const LabelTrackView &LabelTrackView::Get(const LabelTrack &track)
 
 std::shared_ptr<LabelTrack> LabelTrackView::FindLabelTrack()
 {
-   return std::static_pointer_cast<LabelTrack>( FindTrack() );
+   return FindChannel<LabelTrack>();
 }
 
 std::shared_ptr<const LabelTrack> LabelTrackView::FindLabelTrack() const
@@ -243,7 +247,7 @@ wxFont LabelTrackView::GetFont(const wxString &faceName, int size)
       encoding = wxFONTENCODING_DEFAULT;
    else
       encoding = wxFONTENCODING_SYSTEM;
-   
+
    auto fontInfo = size == 0 ? wxFontInfo() : wxFontInfo(size);
    fontInfo
       .Encoding(encoding)
@@ -435,14 +439,11 @@ void LabelTrackView::ComputeLayout(const wxRect & r, const ZoomInfo &zoomInfo) c
    // allowed to be obscured by the text].
    const int xExtra= (3 * mIconWidth)/2;
 
-   bool bAvoidName = false;
    const int nRows = wxMin((r.height / yRowHeight) + 1, MAX_NUM_ROWS);
-   if( nRows > 2 )
-      bAvoidName = gPrefs->ReadBool(wxT("/GUI/ShowTrackNameInWaveform"), false);
    // Initially none of the rows have been used.
    // So set a value that is less than any valid value.
    {
-      // Bug 502: With dragging left of zeros, labels can be in 
+      // Bug 502: With dragging left of zeros, labels can be in
       // negative space.  So set least possible value as starting point.
       const int xStart = INT_MIN;
       for (auto &x : xUsed)
@@ -478,21 +479,6 @@ void LabelTrackView::ComputeLayout(const wxRect & r, const ZoomInfo &zoomInfo) c
       // IF we found such a row THEN record a valid position.
       if( iRow<nRows )
       {
-         // Logic to ameliorate case where first label is under the 
-         // (on track) track name.  For later labels it does not matter
-         // as we can scroll left or right and/or zoom.
-         // A possible alternative idea would be to (instead) increase the 
-         // translucency of the track name, when the mouse is inside it.
-         if( (i==0 ) && (iRow==0) && bAvoidName ){
-            // reserve some space in first row.
-            // reserve max of 200px or t1, or text box right edge.
-            const int x2 = zoomInfo.TimeToPosition(0.0, r.x) + 200;
-            xUsed[iRow]=x+labelStruct.width+xExtra;
-            if( xUsed[iRow] < x1 ) xUsed[iRow]=x1;
-            if( xUsed[iRow] < x2 ) xUsed[iRow]=x2;
-            iRow=1;
-         }
-
          // Possibly update the number of rows actually used.
          if( iRow >= nRowsUsed )
             nRowsUsed=iRow+1;
@@ -521,8 +507,8 @@ void LabelTrackView::DrawLines(
    auto &y = ls.y;
 
    // Bug 2388 - Point label and range label can appear identical
-   // If the start and end times are not actually the same, but they 
-   // would appear so when drawn as lines at current zoom, be sure to draw 
+   // If the start and end times are not actually the same, but they
+   // would appear so when drawn as lines at current zoom, be sure to draw
    // two lines - i.e. displace the second line slightly.
    if (ls.getT0() != ls.getT1()) {
       if (x == x1)
@@ -685,7 +671,7 @@ void LabelTrackView::DrawHighlight( wxDC & dc, const LabelStruct &ls,
    int xPos1, int xPos2, int charHeight)
 {
    const int yFrameHeight = mTextHeight + TextFramePadding * 2;
-   
+
    dc.SetPen(*wxTRANSPARENT_PEN);
    wxBrush curBrush = dc.GetBrush();
    curBrush.SetColour(wxString(wxT("BLUE")));
@@ -776,12 +762,13 @@ namespace {
 /// Draw calls other functions to draw the LabelTrack.
 ///   @param  dc the device context
 ///   @param  r  the LabelTrack rectangle.
-void LabelTrackView::Draw
-( TrackPanelDrawingContext &context, const wxRect & r ) const
+void LabelTrackView::Draw(TrackPanelDrawingContext &context, const wxRect & r)
+const
 {
    auto &dc = context.dc;
    const auto artist = TrackArtist::Get( context );
    const auto &zoomInfo = *artist->pZoomInfo;
+   const auto &pendingTracks = *artist->pPendingTracks;
 
    auto pHit = findHit( artist->parent );
 
@@ -791,13 +778,15 @@ void LabelTrackView::Draw
    if (mFontHeight == -1)
       calculateFontHeight(dc);
 
-   const auto pTrack = std::static_pointer_cast< const LabelTrack >(
-      FindTrack()->SubstitutePendingChangedTrack());
-   const auto &mLabels = pTrack->GetLabels();
+   if (!FindChannel())
+      return;
+   const auto &track = static_cast<const LabelTrack&>(
+      pendingTracks.SubstitutePendingChangedChannel(*FindChannel()));
+   const auto &mLabels = track.GetLabels();
 
-   TrackArt::DrawBackgroundWithSelection( context, r, pTrack.get(),
+   TrackArt::DrawBackgroundWithSelection(context, r, track,
       AColor::labelSelectedBrush, AColor::labelUnselectedBrush,
-      SyncLock::IsSelectedOrSyncLockSelected(pTrack.get()) );
+      SyncLock::IsSelectedOrSyncLockSelected(track));
 
    wxCoord textWidth, textHeight;
 
@@ -851,16 +840,15 @@ void LabelTrackView::Draw
       bool highlightTrack = false;
       auto target = dynamic_cast<LabelTextHandle*>(context.target.get());
       highlightTrack = target &&
-         target->FindChannel().get() ==
-            static_cast<const LabelTrack*>(FindTrack().get());
+         target->FindTrack().get() == FindTrack().get();
 #endif
       int i = -1; for (const auto &labelStruct : mLabels) { ++i;
          bool highlight = false;
 #ifdef EXPERIMENTAL_TRACK_PANEL_HIGHLIGHTING
          highlight = highlightTrack && target->GetLabelNum() == i;
 #endif
-         
-         dc.SetBrush(mNavigationIndex == i || (pHit && pHit->mMouseOverLabel == i) 
+
+         dc.SetBrush(mNavigationIndex == i || (pHit && pHit->mMouseOverLabel == i)
             ? AColor::labelTextEditBrush : AColor::labelTextNormalBrush);
          DrawBar(dc, labelStruct, r);
 
@@ -1246,7 +1234,7 @@ void LabelTrackView::OverGlyph(
          hit.mMouseOverLabelRight = -1;
          break;
       }
-   
+
       //over left or right selection bound
       //Check right bound first, since it is drawn after left bound,
       //so give it precedence for matching/highlighting.
@@ -1648,7 +1636,7 @@ bool LabelTrackView::DoKeyDown(
             if (mods != wxMOD_SHIFT)
                mInitialCursorPos = mCurrentCursorPos;
          }
-         
+
          break;
 
       case WXK_RIGHT:
@@ -1825,7 +1813,7 @@ bool LabelTrackView::DoChar(
       event.Skip();
       return false;
    }
-   
+
    // If we've reached this point and aren't currently editing, add NEW label
    const auto pTrack = FindLabelTrack();
    if (!IsValidIndex(mTextEditIndex, project)) {
@@ -1891,7 +1879,7 @@ bool LabelTrackView::DoChar(
 
    //moving cursor position forward
    mInitialCursorPos = ++mCurrentCursorPos;
-   
+
    return true;
 }
 
@@ -2089,9 +2077,9 @@ int LabelTrackView::AddLabel(const SelectedRegion &selectedRegion,
    return pos;
 }
 
-void LabelTrackView::OnLabelAdded( const LabelTrackEvent &e )
+void LabelTrackView::OnLabelAdded(const LabelTrackEvent &e)
 {
-   if ( e.mpTrack.lock() != FindTrack() )
+   if (e.mpTrack.lock() != FindLabelTrack())
       return;
 
    const auto &title = e.mTitle;
@@ -2110,9 +2098,9 @@ void LabelTrackView::OnLabelAdded( const LabelTrackEvent &e )
       mRestoreFocus = -2;
 }
 
-void LabelTrackView::OnLabelDeleted( const LabelTrackEvent &e )
+void LabelTrackView::OnLabelDeleted(const LabelTrackEvent &e)
 {
-   if ( e.mpTrack.lock() != FindTrack() )
+   if (e.mpTrack.lock() != FindLabelTrack())
       return;
 
    auto index = e.mFormerPosition;
@@ -2121,16 +2109,16 @@ void LabelTrackView::OnLabelDeleted( const LabelTrackEvent &e )
    // THEN set no label selected.
    if (mTextEditIndex == index)
       ResetTextSelection();
-   
+
    // IF we removed a label before the selected label
    // THEN the NEW selected label number is one less.
    else if( index < mTextEditIndex)
       --mTextEditIndex;//NB: Keep cursor selection region
 }
 
-void LabelTrackView::OnLabelPermuted( const LabelTrackEvent &e )
+void LabelTrackView::OnLabelPermuted(const LabelTrackEvent &e)
 {
-   if ( e.mpTrack.lock() != FindTrack() )
+   if (e.mpTrack.lock() != FindLabelTrack())
       return;
 
    auto former = e.mFormerPosition;
@@ -2148,12 +2136,12 @@ void LabelTrackView::OnLabelPermuted( const LabelTrackEvent &e )
    fix(mTextEditIndex);
 }
 
-void LabelTrackView::OnSelectionChange( const LabelTrackEvent &e )
+void LabelTrackView::OnSelectionChange(const LabelTrackEvent &e)
 {
-   if ( e.mpTrack.lock() != FindTrack() )
+   if (e.mpTrack.lock() != FindLabelTrack())
       return;
 
-   if (!FindTrack()->GetSelected())
+   if (!FindLabelTrack()->GetSelected())
    {
        SetNavigationIndex(-1);
        ResetTextSelection();
@@ -2345,7 +2333,8 @@ int LabelTrackView::DialogForLabelName(
 using DoGetLabelTrackView = DoGetView::Override<LabelTrack>;
 DEFINE_ATTACHED_VIRTUAL_OVERRIDE(DoGetLabelTrackView) {
    return [](LabelTrack &track, size_t) {
-      return std::make_shared<LabelTrackView>( track.SharedPointer() );
+      return std::make_shared<LabelTrackView>(
+         track.SharedPointer<LabelTrack>());
    };
 }
 

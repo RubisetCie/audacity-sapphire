@@ -24,6 +24,7 @@
 #include "MixdownUploader.h"
 #include "ProjectCloudExtension.h"
 
+#include "ExportUtils.h"
 #include "MemoryX.h"
 #include "Project.h"
 #include "SampleBlock.h"
@@ -31,6 +32,7 @@
 #include "Track.h"
 #include "WaveClip.h"
 #include "WaveTrack.h"
+#include "WaveTrackUtilities.h"
 
 #include "IResponse.h"
 #include "NetworkManager.h"
@@ -88,35 +90,23 @@ struct LocalProjectSnapshot::ProjectBlocksLock final : private BlockHashCache
 
    void VisitBlocks(TrackList& tracks)
    {
-      for (auto wt : tracks.Any<const WaveTrack>())
-      {
-         for (const auto pChannel : TrackList::Channels(wt))
+      const auto visitor = [this](const SampleBlockPtr &pBlock){
+         const auto id = pBlock->GetBlockID();
+         if(id >= 0)
          {
-            for (const auto& clip : pChannel->GetAllClips())
-            {
-               for (size_t ii = 0, width = clip->GetWidth(); ii < width; ++ii)
-               {
-                  auto blocks = clip->GetSequenceBlockArray(ii);
-
-                  for (const auto& block : *blocks)
-                  {
-                     if (block.sb)
-                     {
-                        const auto id = block.sb->GetBlockID();
-
-                        if (!BlockIds.insert(id).second)
-                           continue;
-
-                        Blocks.push_back(
-                           { id, wt->GetSampleFormat(), block.sb });
-
-                        BlockIdToIndex[id] = Blocks.size() - 1;
-                     }
-                  }
-               }
-            }
+            Blocks.push_back({
+               id, pBlock->GetSampleFormat(), pBlock });
+            BlockIdToIndex[id] = Blocks.size() - 1;
          }
-      }
+         //Do not compute hashes for negative id's, which describe
+         //the length of a silenced sequence. Making an id record in
+         //project blob is enough to restore block contents fully.
+         //VS: Older versions of Audacity encoded them as a regular
+         //blocks, but due to wrong sanity checks in `WavPackCompressor`
+         //attempt to load them could fail. The check above will purge
+         //such blocks if they are present in old project.
+      };
+      WaveTrackUtilities::VisitBlocks(tracks, visitor, &BlockIds);
    }
 
    void CollectHashes()
@@ -209,11 +199,13 @@ struct LocalProjectSnapshot::ProjectBlocksLock final : private BlockHashCache
 
 LocalProjectSnapshot::LocalProjectSnapshot(
    Tag, const ServiceConfig& config, const OAuthService& oauthService,
-   ProjectCloudExtension& extension, std::string name, UploadMode mode)
+   ProjectCloudExtension& extension, std::string name, UploadMode mode,
+   AudiocomTrace trace)
     : mProjectCloudExtension { extension }
     , mWeakProject { extension.GetProject() }
     , mServiceConfig { config }
     , mOAuthService { oauthService }
+    , mAudiocomTrace { trace }
     , mProjectName { std::move(name) }
     , mUploadMode { mode }
     , mCancellationContext { concurrency::CancellationContext::Create() }
@@ -226,7 +218,8 @@ LocalProjectSnapshot::~LocalProjectSnapshot()
 
 LocalProjectSnapshot::Future LocalProjectSnapshot::Create(
    const ServiceConfig& config, const OAuthService& oauthService,
-   ProjectCloudExtension& extension, std::string name, UploadMode mode)
+   ProjectCloudExtension& extension, std::string name, UploadMode mode,
+   AudiocomTrace trace)
 {
    auto project = extension.GetProject().lock();
 
@@ -234,7 +227,7 @@ LocalProjectSnapshot::Future LocalProjectSnapshot::Create(
       return {};
 
    auto snapshot = std::make_shared<LocalProjectSnapshot>(
-      Tag {}, config, oauthService, extension, std::move(name), mode);
+      Tag {}, config, oauthService, extension, std::move(name), mode, trace);
 
    snapshot->mProjectCloudExtension.OnUploadOperationCreated(snapshot);
 
@@ -308,7 +301,8 @@ void LocalProjectSnapshot::Abort()
 void LocalProjectSnapshot::UploadFailed(CloudSyncError error)
 {
    if (!mCompleted.exchange(true, std::memory_order_release))
-      mProjectCloudExtension.OnSyncCompleted(this, std::make_optional(error));
+      mProjectCloudExtension.OnSyncCompleted(
+         this, std::make_optional(error), mAudiocomTrace);
 }
 
 void LocalProjectSnapshot::DataUploadFailed(const ResponseResult& uploadResult)
@@ -605,7 +599,7 @@ void LocalProjectSnapshot::MarkSnapshotSynced()
          }
 
          mCompleted.store(true, std::memory_order_release);
-         mProjectCloudExtension.OnSyncCompleted(this, {});
+         mProjectCloudExtension.OnSyncCompleted(this, {}, mAudiocomTrace);
       });
 
    mCancellationContext->OnCancelled(response);

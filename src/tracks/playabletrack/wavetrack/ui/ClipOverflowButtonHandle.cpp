@@ -47,7 +47,7 @@ ClipOverflowButtonHandle::ClipOverflowButtonHandle(
 
 void ClipOverflowButtonHandle::DoDraw(const wxRect& rect, wxDC& dc)
 {
-   const ClipInterface& clip = *mClip->GetClip(0);
+   const ClipInterface& clip = *mClip;
    ClipButtonDrawingArgs args { rect, clip, dc };
    ClipButtonSpecializations<ClipButtonId::Overflow>::DrawOnClip(args);
 }
@@ -89,8 +89,8 @@ void ClipButtonSpecializations<ClipButtonId::Overflow>::DrawOnClip(
    auto& dc = args.dc;
    const auto& rect = args.rect;
    constexpr auto penWidth = 0;
-   wxDCPenChanger pen { args.dc, { wxPenInfo { *wxBLACK, penWidth } } };
-   wxDCBrushChanger brush { dc, *wxBLACK_BRUSH };
+   wxDCPenChanger pen { args.dc, { wxPenInfo { theTheme.Colour(clrClipNameText), penWidth } } };
+   wxDCBrushChanger brush { dc, theTheme.Colour(clrClipNameText) };
    constexpr auto numDots = 3;
    constexpr auto radius = 1;
    constexpr auto spacing = 4;

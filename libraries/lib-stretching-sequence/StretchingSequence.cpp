@@ -89,9 +89,9 @@ size_t StretchingSequence::NChannels() const
    return mSequence.NChannels();
 }
 
-float StretchingSequence::GetChannelGain(int channel) const
+float StretchingSequence::GetChannelVolume(int channel) const
 {
-   return mSequence.GetChannelGain(channel);
+   return mSequence.GetChannelVolume(channel);
 }
 
 bool StretchingSequence::DoGet(
@@ -187,7 +187,7 @@ bool StretchingSequence::MutableGet(
 }
 
 std::shared_ptr<StretchingSequence> StretchingSequence::Create(
-   const PlayableSequence& sequence, const ClipHolders& clips)
+   const PlayableSequence& sequence, const ClipConstHolders& clips)
 {
    const int sampleRate = sequence.GetRate();
    return std::make_shared<StretchingSequence>(

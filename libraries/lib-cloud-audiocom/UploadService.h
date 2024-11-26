@@ -10,6 +10,7 @@
 **********************************************************************/
 #pragma once
 
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <utility>
@@ -17,6 +18,8 @@
 #include <vector>
 
 #include <wx/string.h>
+
+enum class AudiocomTrace;
 
 namespace audacity::cloud::audiocom
 {
@@ -141,7 +144,8 @@ public:
    */
    UploadOperationHandle Upload(
       const wxString& fileName, const wxString& projectName, bool isPublic,
-      CompletedCallback completedCallback, ProgressCallback progressCallback);
+      CompletedCallback completedCallback, ProgressCallback progressCallback,
+      AudiocomTrace);
 
 private:
    const ServiceConfig& mServiceConfig;

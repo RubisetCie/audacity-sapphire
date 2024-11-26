@@ -24,6 +24,7 @@ Paul Licameli split from AudacityProject.cpp
 #include "CodeConversions.h"
 #include "DBConnection.h"
 #include "FileNames.h"
+#include "PendingTracks.h"
 #include "Project.h"
 #include "ProjectFileIOExtension.h"
 #include "ProjectHistory.h"
@@ -33,6 +34,7 @@ Paul Licameli split from AudacityProject.cpp
 #include "TempDirectory.h"
 #include "TransactionScope.h"
 #include "WaveTrack.h"
+#include "WaveTrackUtilities.h"
 #include "BasicUI.h"
 #include "wxFileNameWrapper.h"
 #include "XMLFileReader.h"
@@ -40,7 +42,7 @@ Paul Licameli split from AudacityProject.cpp
 #include "MemoryX.h"
 
 #include "ProjectFileIOExtension.h"
-#include "ProjectFormatExtensionsRegistry.h"
+#include "ProjectFormatVersion.h"
 
 #include "BufferedStreamReader.h"
 #include "FromChars.h"
@@ -86,10 +88,10 @@ static const int ProjectFileID = PACK('A', 'U', 'D', 'Y');
 
 // Navigation:
 //
-// Bindings are marked out in the code by, e.g. 
+// Bindings are marked out in the code by, e.g.
 // BIND SQL sampleblocks
 // A search for "BIND SQL" will find all bindings.
-// A search for "SQL sampleblocks" will find all SQL related 
+// A search for "SQL sampleblocks" will find all SQL related
 // to sampleblocks.
 
 static const char *ProjectFileSchema =
@@ -110,7 +112,7 @@ static const char *ProjectFileSchema =
    // This is all opaque to SQLite.  It just sees two
    // big binary blobs.
    // There is no limit to document blob size.
-   // dict will be smallish, with an entry for each 
+   // dict will be smallish, with an entry for each
    // kind of field.
    "CREATE TABLE IF NOT EXISTS <schema>.project"
    "("
@@ -130,7 +132,7 @@ static const char *ProjectFileSchema =
    // This is all opaque to SQLite.  It just sees two
    // big binary blobs.
    // There is no limit to document blob size.
-   // dict will be smallish, with an entry for each 
+   // dict will be smallish, with an entry for each
    // kind of field.
    "CREATE TABLE IF NOT EXISTS <schema>.autosave"
    "("
@@ -144,7 +146,7 @@ static const char *ProjectFileSchema =
    // The blocks may be partially empty.
    // The quantity of valid data in the blocks is
    // provided in the project blob.
-   // 
+   //
    // sampleformat specifies the format of the samples stored.
    //
    // blockID is a 64 bit number.
@@ -783,7 +785,7 @@ bool ProjectFileIO::CheckVersion()
       );
       return false;
    }
-   
+
    return true;
 }
 
@@ -926,14 +928,14 @@ bool ProjectFileIO::CopyTo(const FilePath &destpath,
    // Get access to the active tracklist
    auto pProject = &mProject;
 
-   SampleBlockIDSet blockids;
+   WaveTrackUtilities::SampleBlockIDSet blockids;
 
    // Collect all active blockids
    if (prune)
    {
       for (auto trackList : tracks)
          if (trackList)
-            InspectBlocks( *trackList, {}, &blockids );
+            WaveTrackUtilities::InspectBlocks(*trackList, {}, &blockids);
    }
    // Collect ALL blockids
    else
@@ -1002,7 +1004,7 @@ bool ProjectFileIO::CopyTo(const FilePath &destpath,
       }
    });
 
-   // Attach the destination database 
+   // Attach the destination database
    wxString sql;
    wxString dbName = destpath;
    // Bug 2793: Quotes in name need escaping for sqlite3.
@@ -1175,14 +1177,14 @@ bool ProjectFileIO::CopyTo(const FilePath &destpath,
 
 bool ProjectFileIO::ShouldCompact(const std::vector<const TrackList *> &tracks)
 {
-   SampleBlockIDSet active;
+   WaveTrackUtilities::SampleBlockIDSet active;
    unsigned long long current = 0;
 
    {
       auto fn = BlockSpaceUsageAccumulator( current );
       for (auto pTracks : tracks)
          if (pTracks)
-            InspectBlocks( *pTracks, fn,
+            WaveTrackUtilities::InspectBlocks(*pTracks, fn,
                &active // Visit unique blocks only
             );
    }
@@ -1190,7 +1192,7 @@ bool ProjectFileIO::ShouldCompact(const std::vector<const TrackList *> &tracks)
    // Get the number of blocks and total length from the project file.
    unsigned long long total = GetTotalUsage();
    unsigned long long blockcount = 0;
-   
+
    auto cb = [&blockcount](int cols, char **vals, char **)
    {
       // Convert
@@ -1426,7 +1428,7 @@ void ProjectFileIO::Compact(
             // PRL:  not clear what to do if the following fails, but the worst should
             // be, the project may reopen in its present state as a recovery file, not
             // at the last saved state.
-            // REVIEW: Could the autosave file be corrupt though at that point, and so 
+            // REVIEW: Could the autosave file be corrupt though at that point, and so
             // prevent recovery?
             // LLL: I believe Paul is correct since it's deleted with a single SQLite
             // transaction. The next time the file opens will just invoke recovery.
@@ -1696,7 +1698,7 @@ bool ProjectFileIO::HandleXMLTag(const std::string_view& tag, const AttributesLi
 
       ShowError( *ProjectFramePlacement(&project),
          XO("Can't open project file"),
-         msg, 
+         msg,
          "FAQ:Errors_opening_an_Audacity_project"
          );
 
@@ -1758,6 +1760,7 @@ void ProjectFileIO::WriteXML(XMLWriter &xmlFile,
 
    ProjectFileIORegistry::Get().CallWriters(proj, xmlFile);
 
+   auto &pendingTracks = PendingTracks::Get(proj);
    tracklist.Any().Visit([&](const Track &t) {
       auto useTrack = &t;
       if (recording) {
@@ -1766,7 +1769,7 @@ void ProjectFileIO::WriteXML(XMLWriter &xmlFile,
          // regular track list.  That is the one that we want to back up.
          // SubstitutePendingChangedTrack() fetches the shadow, if the track has
          // one, else it gives the same track back.
-         useTrack = t.SubstitutePendingChangedTrack().get();
+         useTrack = &pendingTracks.SubstitutePendingChangedTrack(t);
       }
       else if (useTrack->GetId() == TrackId{}) {
          // This is a track added during a non-appending recording that is
@@ -1970,11 +1973,8 @@ bool ProjectFileIO::WriteDoc(const char *table,
    if (!writeStream("doc", data))
       return false;
 
-   const auto requiredVersion =
-      ProjectFormatExtensionsRegistry::Get().GetRequiredVersion(mProject);
-
    const wxString setVersionSql =
-      wxString::Format("PRAGMA user_version = %u", requiredVersion.GetPacked());
+      wxString::Format("PRAGMA user_version = %u", BaseProjectFormatVersion.GetPacked());
 
    if (!Query(setVersionSql.c_str(), [](auto...) { return 0; }))
    {
@@ -2144,7 +2144,7 @@ bool ProjectFileIO::UpdateSaved(const TrackList *tracks)
    return true;
 }
 
-// REVIEW: This function is believed to report an error to the user in all cases 
+// REVIEW: This function is believed to report an error to the user in all cases
 // of failure.  Callers are believed not to need to do so if they receive 'false'.
 // LLL: All failures checks should now be displaying an error.
 bool ProjectFileIO::SaveProject(
@@ -2303,10 +2303,11 @@ bool ProjectFileIO::SaveProject(
       }
 
       if (lastSaved) {
+         using namespace WaveTrackUtilities;
          // Bug2605: Be sure not to save orphan blocks
          bool recovered = mRecovered;
          SampleBlockIDSet blockids;
-         InspectBlocks( *lastSaved, {}, &blockids );
+         InspectBlocks(*lastSaved, {}, &blockids);
          // TODO: Not sure what to do if the deletion fails
          DeleteBlocks(blockids, true);
          // Don't set mRecovered if any were deleted
@@ -2322,11 +2323,11 @@ bool ProjectFileIO::SaveProject(
       // saved database below.
       CloseProject();
 
-      // And make it the active project file 
+      // And make it the active project file
       UseConnection(std::move(newConn), fileName);
    }
 
-   if (!UpdateSaved(nullptr))
+   if (!UpdateSaved())
    {
       ShowError(
          {}, XO("Error Saving Project"),
@@ -2545,6 +2546,7 @@ int64_t ProjectFileIO::GetBlockUsage(SampleBlockID blockid)
 int64_t ProjectFileIO::GetCurrentUsage(
    const std::vector<const TrackList*> &trackLists) const
 {
+   using namespace WaveTrackUtilities;
    unsigned long long current = 0;
    const auto fn = BlockSpaceUsageAccumulator(current);
 

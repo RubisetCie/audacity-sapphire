@@ -16,30 +16,30 @@ Paul Licameli split from Mix.h
 #include "SampleFormat.h"
 #include "Track.h"
 
+class AudacityProject;
 class WaveTrack;
 class WaveTrackFactory;
 
 #include <memory>
 
-/** @brief Mixes together all input tracks, applying any envelopes, amplitude
- * gain, panning, and real-time effects in the process.
+/** @brief Mixes together all input tracks, applying any envelopes, per-track
+ * real-time effects, volume, panning and real-time effects in the process.
  *
- * Takes one or more tracks as input; of all the WaveTrack s,
- * it mixes them together, applying any envelopes, amplitude gain, panning, and
- * real-time effects in the process.  The resulting pair of tracks (stereo) are
- * "rendered" and have no effects, gain, panning, or envelopes. Other sorts of
- * tracks are ignored.
- * If the start and end times passed are the same this is taken as meaning
- * no explicit time range to process, and the whole occupied length of the
- * input tracks is processed.
- * Channel group properties of the result are copied from the first input track.
+ * Takes one or more tracks as input; of all the WaveTracs,
+ * it mixes together all input tracks, applying any envelopes, per-track
+ * real-time effects, volume, panning and real-time effects in the process. The
+ * resulting pair of tracks (stereo) are "rendered" and have no effects, volume,
+ * panning, or envelopes. Other sorts of tracks are ignored. If the start and
+ * end times passed are the same this is taken as meaning no explicit time range
+ * to process, and the whole occupied length of the input tracks is processed.
+ *
+ * Channel group properties of the result are copied from the first input track,
+ * except that `newTrackName` is applied when more than one track is mixed.
  *
  * @param newTrackName used only when there is more than one input track (one
  * mono channel or a stereo pair); else the unique track's name is copied
- *
- * @pre `trackRange` iterates over leaders only
  */
-EFFECTS_API TrackListHolder MixAndRender(
+EFFECTS_API Track::Holder MixAndRender(
    const TrackIterRange<const WaveTrack> &trackRange,
    const Mixer::WarpOptions &warpOptions,
    const wxString &newTrackName,
@@ -53,5 +53,9 @@ using ChannelNames = const ChannelName *;
 EFFECTS_API
 std::vector<MixerOptions::StageSpecification>
 GetEffectStages(const WaveTrack &track);
+
+EFFECTS_API
+std::vector<MixerOptions::StageSpecification>
+GetMasterEffectStages(const AudacityProject& project);
 
 #endif

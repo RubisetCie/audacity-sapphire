@@ -88,11 +88,12 @@ public:
    //in DiscoverPluginsAtPath, but some plugin types can safely provide meta
    //data, which is a good reason to ask to avoid such checks during plugin
    //discovery...
-   class Validator
+   class COMPONENTS_API Validator
    {
    public:
       //!\param pluginInterface loaded plugin
       virtual void Validate(ComponentInterface& pluginInterface) = 0;
+      virtual ~Validator();
    };
 
    virtual ~PluginProvider();
@@ -133,6 +134,8 @@ public:
 
    //! Called so that a provider of a static set of plug-ins can register them.
    virtual void AutoRegisterPlugins(PluginManagerInterface & pluginManager) = 0;
+
+   virtual bool SupportsCustomModulePaths() const;
 
    //! Find available "paths", which may each be presented to the user, and
    //! then reexamined (possibly loading libraries) to find one or more plug-ins

@@ -18,6 +18,7 @@
 #include "PrefsPanel.h"
 
 class ChoiceSetting;
+class BoolSetting;
 class ShuttleGui;
 
 #define GUI_PREFS_PLUGIN_SYMBOL ComponentInterfaceSymbol{ XO("GUI") }
@@ -34,12 +35,6 @@ class AUDACITY_DLL_API GUIPrefs final : public PrefsPanel
    ManualPageID HelpPageName() override;
    void PopulateOrExchange(ShuttleGui & S) override;
 
-   static void GetRangeChoices(
-      TranslatableStrings *pChoices,
-      wxArrayStringEx *pCodes,
-      int *pDefaultRangeIndex = nullptr
-   );
-
  private:
    void Populate();
 
@@ -51,9 +46,7 @@ class AUDACITY_DLL_API GUIPrefs final : public PrefsPanel
    int mDefaultRangeIndex;
 };
 
-AUDACITY_DLL_API
-int ShowClippingPrefsID();
-AUDACITY_DLL_API
-int ShowTrackNameInWaveformPrefsID();
+AUDACITY_DLL_API BoolSetting& ShowRMSPref();
+AUDACITY_DLL_API BoolSetting& ShowClippingPref();
 
 #endif

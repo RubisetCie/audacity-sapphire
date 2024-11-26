@@ -53,9 +53,9 @@ TrackPanelResizeHandle::~TrackPanelResizeHandle()
 {
 }
 
-std::shared_ptr<const Channel> TrackPanelResizeHandle::FindChannel() const
+std::shared_ptr<const Track> TrackPanelResizeHandle::FindTrack() const
 {
-   return mwChannel.lock();
+   return TrackFromChannel(mwChannel.lock());
 }
 
 std::shared_ptr<Channel> TrackPanelResizeHandle::FindChannel()
@@ -155,6 +155,9 @@ UIHandle::Result TrackPanelResizeHandle::Drag
 
    auto &view = ChannelView::Get(*theChannel);
 
+   if (view.GetMinimized() && mMode == IsResizingBetweenLinkedTracks)
+      return RefreshCode::Cancelled;
+
    const wxMouseEvent &event = evt.event;
 
    int delta = (event.m_y - mMouseClickY);
@@ -184,7 +187,7 @@ UIHandle::Result TrackPanelResizeHandle::Drag
    // Common pieces of code for MONO_WAVE_PAN and otherwise.
    auto doResizeBelow = [&] (Channel *prev) {
       // TODO: more-than-two-channels
-      
+
       auto &prevView = ChannelView::Get(*prev);
 
       double proportion = static_cast < double >(mInitialTrackHeight)
@@ -334,10 +337,5 @@ UIHandle::Result TrackPanelResizeHandle::Cancel(AudacityProject *pProject)
 
 Track &TrackPanelResizeHandle::GetTrack(Channel &channel)
 {
-   // TODO wide wave tracks -- just return channel.GetTrack()
-   // But until then, Track::Channels() will not iterate all channels when
-   // given a right hand track
-   // So be sure to substitute the leader
-   const auto pTrack = static_cast<Track*>(&channel.GetChannelGroup());
-   return **TrackList::Channels(pTrack).begin();
+   return *static_cast<Track*>(&channel.GetChannelGroup());
 }

@@ -26,6 +26,7 @@ class XMLWriter;
 
 class SampleBlock;
 using SampleBlockPtr = std::shared_ptr<SampleBlock>;
+using SampleBlockConstPtr = std::shared_ptr<const SampleBlock>;
 class SampleBlockFactory;
 using SampleBlockFactoryPtr = std::shared_ptr<SampleBlockFactory>;
 
@@ -45,8 +46,6 @@ public:
 class WAVE_TRACK_API SampleBlock
 {
 public:
-   using DeletionCallback = std::function<void(const SampleBlock &)>;
-
    virtual ~SampleBlock();
 
    virtual void CloseLock() noexcept = 0;
@@ -61,6 +60,8 @@ public:
                      size_t numsamples, bool mayThrow = true);
 
    virtual BlockSampleView GetFloatSampleView(bool mayThrow) = 0;
+
+   virtual sampleFormat GetSampleFormat() const = 0;
 
    virtual size_t GetSampleCount() const = 0;
 
@@ -98,11 +99,11 @@ protected:
 };
 
 // Makes a useful function object
-inline std::function< void(const SampleBlock&) >
+inline std::function< void(SampleBlockConstPtr) >
 BlockSpaceUsageAccumulator (unsigned long long &total)
 {
-   return [&total]( const SampleBlock &block ){
-      total += block.GetSpaceUsage();
+   return [&total](SampleBlockConstPtr pBlock){
+      total += pBlock->GetSpaceUsage();
    };
 };
 

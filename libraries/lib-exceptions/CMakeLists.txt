@@ -13,9 +13,9 @@ enqueues the delayed action.
 But this library does NOT define a top-level handler for the whole application,
 to catch all otherwise uncaught exceptions. That is a responsibility of high
 level code.
-]]#
+]]
 
-list( APPEND SOURCES
+set( SOURCES
    AudacityException.cpp
    AudacityException.h
    InconsistencyException.cpp

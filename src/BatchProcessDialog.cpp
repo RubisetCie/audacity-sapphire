@@ -14,6 +14,7 @@
 
 *//*******************************************************************/
 #include "BatchProcessDialog.h"
+#include "DoEffect.h"
 
 #include <wx/setup.h> // for wxUSE_* macros
 
@@ -35,6 +36,7 @@
 #include <wx/settings.h>
 
 #include "Clipboard.h"
+#include "PluginManager.h"
 #include "ShuttleGui.h"
 #include "MenuCreator.h"
 #include "Prefs.h"
@@ -45,6 +47,7 @@
 #include "ProjectWindows.h"
 #include "SelectUtilities.h"
 #include "Track.h"
+
 #include "CommandManager.h"
 #include "Effect.h"
 #include "effects/EffectUI.h"
@@ -145,7 +148,7 @@ void ApplyMacroDialog::PopulateOrExchange(ShuttleGui &S)
    S.StartStatic(XO("Select Macro"), 1);
    {
       mMacros = S.Id(MacrosListID).Prop(1)
-         .Style(wxSUNKEN_BORDER | wxLC_REPORT | wxLC_HRULES | wxLC_VRULES |
+         .Style( wxLC_REPORT | wxLC_HRULES | wxLC_VRULES |
              wxLC_SINGLE_SEL)
               // i18n-hint: This is the heading for a column in the edit macros dialog
               .AddListControlReportMode( { XO("Macro") } );
@@ -391,7 +394,7 @@ void ApplyMacroDialog::OnApplyToFiles(wxCommandEvent & WXUNUSED(event))
          imageList->Add(wxIcon(arrow_xpm));
 
          fileList = S.Id(CommandsListID)
-            .Style(wxSUNKEN_BORDER | wxLC_REPORT | wxLC_HRULES | wxLC_VRULES |
+            .Style( wxLC_REPORT | wxLC_HRULES | wxLC_VRULES |
                 wxLC_SINGLE_SEL)
             .AddListControlReportMode( { XO("File") } );
          // AssignImageList takes ownership
@@ -629,7 +632,7 @@ void MacrosWindow::PopulateOrExchange(ShuttleGui & S)
          S.StartHorizontalLay(wxEXPAND,1);
          {
             mMacros = S.Id(MacrosListID).Prop(1)
-               .Style(wxSUNKEN_BORDER | wxLC_REPORT | wxLC_HRULES
+               .Style( wxLC_REPORT | wxLC_HRULES
                       | wxLC_SINGLE_SEL | wxLC_EDIT_LABELS)
               // i18n-hint: This is the heading for a column in the edit macros dialog
               .AddListControlReportMode( { XO("Macro") } );
@@ -653,7 +656,7 @@ void MacrosWindow::PopulateOrExchange(ShuttleGui & S)
          S.StartHorizontalLay(wxEXPAND,1);
          {
             mList = S.Id(CommandsListID)
-               .Style(wxSUNKEN_BORDER | wxLC_REPORT | wxLC_HRULES | wxLC_VRULES |
+               .Style( wxLC_REPORT | wxLC_HRULES | wxLC_VRULES |
                    wxLC_SINGLE_SEL)
                .AddListControlReportMode({
                   /* i18n-hint: This is the number of the command in the list */
@@ -665,7 +668,7 @@ void MacrosWindow::PopulateOrExchange(ShuttleGui & S)
             S.StartVerticalLay(wxALIGN_TOP, 0);
             {
                S.Id(InsertButtonID).AddButton(XXO("&Insert"), wxALIGN_LEFT);
-               S.Id(EditButtonID).AddButton(XXO("&Edit..."), wxALIGN_LEFT);
+               mEdit = S.Id(EditButtonID).AddButton(XXO("&Edit..."), wxALIGN_LEFT);
                S.Id(DeleteButtonID).AddButton(XXO("De&lete"), wxALIGN_LEFT);
                S.Id(UpButtonID).AddButton(XXO("Move &Up"), wxALIGN_LEFT);
                S.Id(DownButtonID).AddButton(XXO("Move &Down"), wxALIGN_LEFT);
@@ -888,8 +891,19 @@ void MacrosWindow::ShowActiveMacro()
 }
 
 /// An item in the macros list has been selected.
-void MacrosWindow::OnListSelected(wxListEvent & WXUNUSED(event))
+void MacrosWindow::OnListSelected(wxListEvent &event)
 {
+   const auto &command = mCatalog.ByTranslation(mList->GetItemText(event.GetIndex(), ActionColumn));
+
+   if (command != mCatalog.end())
+   {
+      PluginID ID =
+         PluginManager::Get().GetByCommandIdentifier(command->name.Internal());
+
+      mEdit->Enable(!ID.empty());
+   }
+
+
    FitColumns();
 }
 
@@ -1219,7 +1233,7 @@ void MacrosWindow::OnEditCommandParams(wxCommandEvent & WXUNUSED(event))
    wxString params  = mMacroCommands.GetParams(item);
    wxString oldParams = params;
 
-   params = MacroCommands::PromptForParamsFor(command, params, *this).Trim();
+   params = MacroCommands::PromptForParamsFor(command, params, mProject).Trim();
    Raise();
 
    if (oldParams == params)
@@ -1384,7 +1398,6 @@ void MacrosWindow::UpdatePrefs()
 
 #include "CommonCommandFlags.h"
 #include "CommandContext.h"
-#include "effects/EffectManager.h"
 namespace {
 
 AttachedWindows::RegisteredFactory sMacrosWindowKey{
@@ -1409,10 +1422,8 @@ void OnRepeatLastTool(const CommandContext& context)
      {
         auto lastEffect = commandManager.mLastTool;
         if (!lastEffect.empty())
-        {
            EffectUI::DoEffect(
-              lastEffect, context, commandManager.mRepeatToolFlags);
-        }
+              lastEffect, context.project, commandManager.mRepeatToolFlags);
      }
        break;
      case CommandManager::repeattypeunique:
@@ -1481,8 +1492,7 @@ void OnApplyMacroDirectlyByName(const CommandContext& context, const MacroID& Na
    CommandManager::Get(project).ModifyUndoMenuItems();
 
    TranslatableString desc;
-   EffectManager& em = EffectManager::Get();
-   auto shortDesc = em.GetCommandName(Name);
+   auto shortDesc = PluginManager::Get().GetName(Name);
    auto& undoManager = UndoManager::Get(project);
    auto& commandManager = CommandManager::Get(project);
    int cur = undoManager.GetCurrentState();
@@ -1539,8 +1549,9 @@ auto PluginMenuItems()
             const auto &lastTool = CommandManager::Get(project).mLastTool;
             TranslatableString buildMenuLabel;
             if (!lastTool.empty())
-               buildMenuLabel = XO("Repeat %s")
-                  .Format( EffectManager::Get().GetCommandName(lastTool) );
+               buildMenuLabel =
+                  XO("Repeat %s")
+                     .Format(PluginManager::Get().GetName(lastTool));
             else
                buildMenuLabel = XO("Repeat Last Tool");
 

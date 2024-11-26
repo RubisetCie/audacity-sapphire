@@ -19,7 +19,7 @@ Paul Licameli split from WaveChannelVRulerControls.cpp
 #include "../../../../RefreshCode.h"
 #include "../../../../TrackPanelMouseEvent.h"
 #include "WaveTrack.h"
-#include "../../../../prefs/SpectrogramSettings.h"
+#include "SpectrogramSettings.h"
 #include "../../../../widgets/Ruler.h"
 #include "../../../../widgets/LinearUpdater.h"
 #include "../../../../widgets/LogarithmicUpdater.h"
@@ -35,10 +35,9 @@ std::vector<UIHandlePtr> SpectrumVRulerControls::HitTest(
    std::vector<UIHandlePtr> results;
 
    if ( st.state.GetX() <= st.rect.GetRight() - kGuard ) {
-      auto pTrack = FindTrack()->SharedPointer<WaveTrack>(  );
-      if (pTrack) {
+      if (const auto pChannel = FindWaveChannel()) {
          auto result = std::make_shared<SpectrumVZoomHandle>(
-            pTrack, st.rect, st.state.m_y );
+            pChannel, st.rect, st.state.m_y);
          result = AssignUIHandlePtr(mVZoomHandle, result);
          results.push_back(result);
       }
@@ -54,33 +53,37 @@ unsigned SpectrumVRulerControls::HandleWheelRotation(
    const TrackPanelMouseEvent &evt, AudacityProject *pProject)
 {
    using namespace RefreshCode;
-   const auto pTrack = FindTrack();
-   if (!pTrack)
+   const auto pChannel = FindWaveChannel();
+   if (!pChannel)
       return RefreshNone;
-   const auto wt = static_cast<WaveTrack*>(pTrack.get());
-   return DoHandleWheelRotation( evt, pProject, wt );
+   return DoHandleWheelRotation(evt, pProject, *pChannel);
+}
+
+std::shared_ptr<WaveChannel> SpectrumVRulerControls::FindWaveChannel()
+{
+   return FindChannel<WaveChannel>();
 }
 
 unsigned SpectrumVRulerControls::DoHandleWheelRotation(
-   const TrackPanelMouseEvent &evt, AudacityProject *pProject, WaveTrack *wt)
+   const TrackPanelMouseEvent &evt, AudacityProject *pProject, WaveChannel &wc)
 {
    using namespace RefreshCode;
    const wxMouseEvent &event = evt.event;
-   
+
    if (!(event.ShiftDown() || event.CmdDown()))
       return RefreshNone;
-   
+
    // Always stop propagation even if the ruler didn't change.  The ruler
    // is a narrow enough target.
    evt.event.Skip(false);
-   
+
    auto steps = evt.steps;
-   
+
    using namespace WaveChannelViewConstants;
    if (event.CmdDown() && !event.ShiftDown()) {
       const int yy = event.m_y;
       SpectrumVZoomHandle::DoZoom(
-         pProject, wt,
+         pProject, wc,
          (steps < 0)
             ? kZoomOut
             : kZoomIn,
@@ -92,11 +95,11 @@ unsigned SpectrumVRulerControls::DoHandleWheelRotation(
       const int height = evt.rect.GetHeight();
       {
          const float delta = steps * movement / height;
-         SpectrogramSettings &settings = SpectrogramSettings::Own(*wt);
+         SpectrogramSettings &settings = SpectrogramSettings::Own(wc);
          const bool isLinear = settings.scaleType == SpectrogramSettings::stLinear;
          float bottom, top;
-         SpectrogramBounds::Get(*wt).GetBounds(*wt, bottom, top);
-         const double rate = wt->GetRate();
+         SpectrogramBounds::Get(wc).GetBounds(wc, bottom, top);
+         const double rate = wc.GetRate();
          const float bound = rate / 2;
          const NumberScale numberScale(settings.GetScale(bottom, top));
          float newTop =
@@ -107,15 +110,15 @@ unsigned SpectrumVRulerControls::DoHandleWheelRotation(
          newTop =
          std::min(bound,
                   numberScale.PositionToValue(numberScale.ValueToPosition(newBottom) + 1.0f));
-         
-         SpectrogramBounds::Get(*wt).SetBounds(newBottom, newTop);
+
+         SpectrogramBounds::Get(wc).SetBounds(newBottom, newTop);
       }
    }
    else
       return RefreshNone;
-   
+
    ProjectHistory::Get( *pProject ).ModifyState(true);
-   
+
    return RefreshCell | UpdateVRuler;
 }
 
@@ -127,30 +130,30 @@ void SpectrumVRulerControls::Draw(
    WaveChannelVRulerControls::DoDraw(*this, context, rect_, iPass);
 }
 
-void SpectrumVRulerControls::UpdateRuler( const wxRect &rect )
+void SpectrumVRulerControls::UpdateRuler(const wxRect &rect)
 {
-   const auto wt = std::static_pointer_cast< WaveTrack >( FindTrack() );
-   if (!wt)
+   const auto pChannel = FindWaveChannel();
+   if (!pChannel)
       return;
-   DoUpdateVRuler( rect, wt.get() );
+   DoUpdateVRuler(rect, *pChannel);
 }
 
 void SpectrumVRulerControls::DoUpdateVRuler(
-   const wxRect &rect, const WaveTrack *wt )
+   const wxRect &rect, const WaveChannel &wc)
 {
    auto vruler = &WaveChannelVRulerControls::ScratchRuler();
-   const auto &settings = SpectrogramSettings::Get(*wt);
+   const auto &settings = SpectrogramSettings::Get(wc);
    float minFreq, maxFreq;
-   SpectrogramBounds::Get(*wt).GetBounds(*wt, minFreq, maxFreq);
+   SpectrogramBounds::Get(wc).GetBounds(wc, minFreq, maxFreq);
    vruler->SetDbMirrorValue(0.0);
-   
+
    switch (settings.scaleType) {
       default:
          wxASSERT(false);
       case SpectrogramSettings::stLinear:
       {
          // Spectrum
-         
+
          /*
           draw the ruler
           we will use Hz if maxFreq is < 2000, otherwise we represent kHz,
@@ -182,7 +185,7 @@ void SpectrumVRulerControls::DoUpdateVRuler(
       case SpectrogramSettings::stPeriod:
       {
          // SpectrumLog
-         
+
          /*
           draw the ruler
           we will use Hz if maxFreq is < 2000, otherwise we represent kHz,
@@ -201,6 +204,6 @@ void SpectrumVRulerControls::DoUpdateVRuler(
       }
          break;
    }
-   auto &size = ChannelView::Get(*wt).vrulerSize;
+   auto &size = ChannelView::Get(wc).vrulerSize;
    vruler->GetMaxSize(&size.first, &size.second);
 }

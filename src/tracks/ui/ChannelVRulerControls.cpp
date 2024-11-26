@@ -24,8 +24,9 @@ Paul Licameli split from TrackPanel.cpp
 #include <wx/translation.h>
 
 ChannelVRulerControls::ChannelVRulerControls(
-   const std::shared_ptr<ChannelView> &pChannelView)
-  : mwChannelView{ pChannelView }
+   const std::shared_ptr<ChannelView> &pChannelView
+) : CommonChannelCell{ pChannelView->FindChannel() }
+  , mwChannelView{ pChannelView }
 {
 }
 
@@ -46,9 +47,10 @@ const ChannelVRulerControls &ChannelVRulerControls::Get(
 
 std::shared_ptr<Track> ChannelVRulerControls::DoFindTrack()
 {
+   // Just pass-through to related ChannelView object
    const auto pView = mwChannelView.lock();
    if (pView)
-      return pView->FindTrack();
+      return pView->DoFindTrack();
    return {};
 }
 
@@ -93,32 +95,6 @@ wxRect ChannelVRulerControls::ZoomingArea(
       (panelRect.width - kRightMargin + kBorderThickness) - rect.x,
       rect.height
    };
-}
-
-void ChannelVRulerControls::Draw(
-   TrackPanelDrawingContext &context,
-   const wxRect &rect_, unsigned iPass)
-{
-   // Common initial part of drawing for all subtypes
-   if ( iPass == TrackArtist::PassMargins ) {
-      auto rect = rect_;
-      --rect.width;
-      
-      auto dc = &context.dc;
-      
-      
-      // Paint the background
-      auto pTrack = FindTrack();
-      AColor::MediumTrackInfo(dc, pTrack && pTrack->GetSelected() );
-      dc->DrawRectangle( rect );
-      
-      // Stroke the left border
-      dc->SetPen(*wxBLACK_PEN);
-      {
-         const auto left = rect.GetLeft();
-         AColor::Line( *dc, left, rect.GetTop(), left, rect.GetBottom() );
-      }
-   }
 }
 
 wxRect ChannelVRulerControls::DrawingArea(

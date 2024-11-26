@@ -122,13 +122,9 @@ void DoListSelection(
    auto &window = GetProjectFrame(project);
 
    auto isSyncLocked = SyncLockState::Get(project).IsSyncLocked();
-   // Substitute the leader to satisfy precondition
-   auto pT = *tracks.Find(&t);
-   if (!pT)
-      return;
 
    selectionState.HandleListSelection(
-      tracks, viewInfo, *pT,
+      tracks, viewInfo, t,
       shift, ctrl, isSyncLocked);
 
    if (!ctrl)
@@ -167,8 +163,6 @@ void DoSelectSomething(AudacityProject &project)
 
 void ActivatePlayRegion(AudacityProject &project)
 {
-   auto &tracks = TrackList::Get( project );
-
    auto &viewInfo = ViewInfo::Get( project );
    auto &playRegion = viewInfo.playRegion;
    playRegion.SetActive( true );
@@ -225,6 +219,8 @@ void SetPlayRegionToSelection(AudacityProject &project)
    auto &playRegion = viewInfo.playRegion;
    auto &selectedRegion = viewInfo.selectedRegion;
    playRegion.SetAllTimes( selectedRegion.t0(), selectedRegion.t1() );
+   if(!playRegion.Empty())
+      ActivatePlayRegion(project);
 }
 
 void OnSetRegion(AudacityProject &project,

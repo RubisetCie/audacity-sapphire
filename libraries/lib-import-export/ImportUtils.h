@@ -34,22 +34,33 @@ public:
    //! Choose appropriate format, which will not be narrower than the specified one
    static sampleFormat ChooseFormat(sampleFormat effectiveFormat);
    
-   //! Builds a wave track and places it into a track list.
+   //! Builds a wave track
    //! The format will not be narrower than the specified one.
-   static TrackListHolder NewWaveTrack(WaveTrackFactory &trackFactory, unsigned nChannels,
+   static std::shared_ptr<WaveTrack>
+   NewWaveTrack(WaveTrackFactory &trackFactory, unsigned nChannels,
       sampleFormat effectiveFormat, double rate);
-   
+
    static void ShowMessageBox(const TranslatableString& message, const TranslatableString& caption = XO("Import Project"));
 
    //! Iterates over channels in each wave track from the list
    static
    void ForEachChannel(TrackList& trackList, const std::function<void(WaveChannel&)>& op);
 
-   //! Flushes the given channels and moves them to \p outTracks
+   //! Iterates over channels in one wave track
    static
-   void FinalizeImport(TrackHolders& outTracks, const std::vector<TrackListHolder>& importedStreams);
+   void ForEachChannel(WaveTrack &track, const std::function<void(WaveChannel&)>& op);
 
    //! Flushes the given channels and moves them to \p outTracks
    static
-   void FinalizeImport(TrackHolders& outTracks, TrackListHolder trackList);
+   void FinalizeImport(TrackHolders& outTracks,
+      const std::vector<std::shared_ptr<WaveTrack>>& importedStreams);
+
+   //! Flushes the given channels and moves them to \p outTracks
+   //! \p trackList is emptied
+   static
+   void FinalizeImport(TrackHolders& outTracks, TrackList &&trackList);
+
+   //! Flushes the given channels and moves them to \p outTracks
+   static
+   void FinalizeImport(TrackHolders& outTracks, WaveTrack &track);
 };

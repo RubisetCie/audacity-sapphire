@@ -262,28 +262,6 @@ void ThemeBase::LoadTheme( teThemeType Theme )
    RotateImageInto( bmpRecordBeside, bmpRecordBelow, false );
    RotateImageInto( bmpRecordBesideDisabled, bmpRecordBelowDisabled, false );
 
-   // Other modifications of images happening only when the setting
-   // GUIBlendThemes is true
-   if ( mpSet->bRecolourOnLoad ) {
-      RecolourTheme();
-
-      wxColor Back        = theTheme.Colour( clrTrackInfo );
-      wxColor CurrentText = theTheme.Colour( clrTrackPanelText );
-      wxColor DesiredText = wxSystemSettings::GetColour( wxSYS_COLOUR_WINDOWTEXT );
-
-      int TextColourDifference =  ColourDistance( CurrentText, DesiredText );
-
-      // Theming is very accepting of alternative text colours.  They just need to
-      // have decent contrast to the background colour, if we're blending themes.
-      if ( TextColourDifference != 0 ) {
-         int ContrastLevel        =  ColourDistance( Back, DesiredText );
-         if ( ContrastLevel > 250 )
-            Colour( clrTrackPanelText ) = DesiredText;
-      }
-      mpSet->bRecolourOnLoad = false;
-   }
-
-
    // Next line is not required as we haven't yet built the GUI
    // when this function is (or should be) called.
    // AColor::ApplyUpdatedImages();
@@ -309,42 +287,6 @@ int ThemeBase::ColourDistance( wxColour & From, wxColour & To ){
       abs( From.Red() - To.Red() )
       + abs( From.Green() - To.Green() )
       + abs( From.Blue() - To.Blue() );
-}
-
-// This function coerces a theme to be more like the system colours.
-// Only used for built in themes.  For custom themes a user
-// will choose a better theme for them and just not use a mismatching one.
-void ThemeBase::RecolourTheme()
-{
-   wxColour From = Colour( clrMedium );
-#if defined( __WXGTK__ )
-   wxColour To = wxSystemSettings::GetColour( wxSYS_COLOUR_BACKGROUND );
-#else
-   wxColour To = wxSystemSettings::GetColour( wxSYS_COLOUR_3DFACE );
-#endif
-   // only recolour if recolouring is slight.
-   int d = ColourDistance( From, To );
-
-   // Don't recolour if difference is too big.
-   if( d  > 120 )
-      return;
-
-   // A minor tint difference from standard does not need 
-   // to be recouloured either.  Includes case of d==0 which is nothing
-   // needs to be done.
-   if( d < 40 )
-      return;
-
-   Colour( clrMedium ) = To;
-   RecolourBitmap( bmpUpButtonLarge, From, To );
-   RecolourBitmap( bmpDownButtonLarge, From, To );
-   RecolourBitmap( bmpHiliteButtonLarge, From, To );
-   RecolourBitmap( bmpUpButtonSmall, From, To );
-   RecolourBitmap( bmpDownButtonSmall, From, To );
-   RecolourBitmap( bmpHiliteButtonSmall, From, To );
-
-   Colour( clrTrackInfo ) = To;
-   RecolourBitmap( bmpUpButtonExpand, From, To );
 }
 
 wxImage ThemeBase::MaskedImage( char const ** pXpm, char const ** pMask )
@@ -909,8 +851,6 @@ bool ThemeBase::ReadImageCache( teThemeType type, bool bOkIfNotFound)
 //      ImageCache.InitAlpha();
 //   }
 
-   mpSet->bRecolourOnLoad = GUIBlendThemes.Read();
-
    using namespace BasicUI;
 
    if( type.empty() || type == "custom" )
@@ -1351,7 +1291,7 @@ ChoiceSetting &GUITheme()
       // conserving the ordering that was used in 3.1.0; otherwise
       // sorting other registered themes alphabetically by identifier
       static const Identifier names[] = {
-         "classic", "light", "dark", "high-contrast"
+         "classic", "light", "dark", "high-contrast", "modern"
       };
       static auto index = [](const EnumValueSymbol &symbol){
          auto begin = std::begin(names), end = std::end(names);
@@ -1377,5 +1317,3 @@ ChoiceSetting &GUITheme()
 
    return setting;
 }
-
-BoolSetting GUIBlendThemes{ wxT("/GUI/BlendThemes"), true };

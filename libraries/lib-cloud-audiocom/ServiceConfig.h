@@ -15,6 +15,8 @@
 #include <vector>
 #include <rapidjson/fwd.h>
 
+enum class AudiocomTrace;
+
 namespace audacity::cloud::audiocom
 {
 
@@ -26,19 +28,26 @@ public:
    //! API endpoint
    std::string GetAPIEndpoint() const;
    //! Page to open in browser to initiate OAuth
-   std::string GetOAuthLoginPage() const;
+   std::string GetOAuthLoginPage(AudiocomTrace) const;
    //! OAuth2 client ID
    std::string GetOAuthClientID() const;
    //! OAuth2 client secret
    std::string GetOAuthClientSecret() const;
    //! OAuth2 redirect URL. Only used to satisfy the protocol
    std::string GetOAuthRedirectURL() const;
+   //! Audio.com authorization API to automatically login current user 
+   //  in the default browser when opening the project from audacity
+   std::string GetAuthWithRedirectURL() const;
    //! Helper to construct the full URLs for the API
    std::string GetAPIUrl(std::string_view apiURI) const;
    //! Helper to construct the page URL for the anonymous upload last stage
-   std::string GetFinishUploadPage(std::string_view audioID, std::string_view token) const;
+   std::string GetFinishUploadPage(
+      std::string_view audioID, std::string_view token,
+      AudiocomTrace) const;
    //! Helper to construct the page URL for the authorised upload
-   std::string GetAudioURL(std::string_view userSlug, std::string_view audioSlug) const;
+   std::string GetAudioURL(
+      std::string_view userSlug, std::string_view audioSlug,
+      AudiocomTrace) const;
    //! Timeout between progress callbacks
    std::chrono::milliseconds GetProgressCallbackTimeout() const;
    //! Preferred audio format
@@ -64,10 +73,10 @@ public:
       std::string_view projectId, std::string_view snapshotId) const;
 
    std::string GetNetworkStatsUrl(std::string_view projectId) const;
+   std::string GetProjectPagePath(std::string_view userSlug, std::string_view projectSlug,
+      AudiocomTrace) const;
    std::string
-   GetProjectPageUrl(std::string_view userId, std::string_view projectId) const;
-   std::string
-   GetProjectsPageUrl(std::string_view userId) const;
+   GetProjectsPagePath(std::string_view userSlug, AudiocomTrace) const;
 
 private:
    std::string mApiEndpoint;
@@ -75,6 +84,7 @@ private:
    std::string mOAuthClientSecret;
    std::string mOAuthRedirectURL;
    std::string mOAuthLoginPage;
+   std::string mAuthWithRedirectURL;
    std::string mFinishUploadPage;
    std::string mFrontendURL;
    std::string mPreferredMimeType;
