@@ -705,7 +705,6 @@ std::pair<int, int> ProjectWindow::ViewportSize() const
 
 bool ProjectWindow::MayScrollBeyondZero() const
 {
-#if EXPERIMENTAL_SCRUBBING_SUPPORT
    auto pProject = FindProject();
    if (!pProject)
       return false;
@@ -724,7 +723,6 @@ bool ProjectWindow::MayScrollBeyondZero() const
             return true;
       }
    }
-#endif
 
    return false;
 }
