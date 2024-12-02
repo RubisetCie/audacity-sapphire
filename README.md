@@ -32,6 +32,7 @@ Audacity uses [Conan 2](https://conan.io/) to manage dependencies.
 * **cmake** >= 3.16
 * A working C++ 17 compiler
 * Graphviz (optional)
+* NASM (optional)
 
 ### Windows
 
