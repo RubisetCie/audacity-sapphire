@@ -15251,7 +15251,7 @@ msgid "&Backup Project..."
 msgstr "Sauvegarde d’un projet…"
 
 #: src/menus/FileMenus.cpp
-msgid "&Render Audio..."
+msgid "R&ender Audio..."
 msgstr "&Exporter l’audio…"
 
 #: src/menus/FileMenus.cpp
@@ -17911,6 +17911,10 @@ msgstr "Audio collé"
 #: src/prefs/TracksBehaviorsPrefs.cpp
 msgid "Paste audio from other Audacity project as"
 msgstr "Coller l'audio d'un autre projet Audacity en tant que"
+
+#: src/prefs/TracksBehaviorsPrefs.cpp
+msgid "Enable scrolling left of &zero"
+msgstr "Activer le déplacement à gauche du &zéro"
 
 #: src/prefs/TracksPrefs.cpp src/prefs/WaveformPrefs.h
 msgid "Waveform"
