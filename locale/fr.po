@@ -3886,7 +3886,7 @@ msgstr "Classique"
 
 #: libraries/lib-theme-resources/DarkThemeAsCeeCode.cpp
 msgid "Dark"
-msgstr "Noir"
+msgstr "Sombre"
 
 #. i18n-hint: greater difference between foreground and
 #. background colors
@@ -3897,7 +3897,7 @@ msgstr "Contraste élevé"
 #. i18n-hint: Light meaning opposite of dark
 #: libraries/lib-theme-resources/LightThemeAsCeeCode.cpp
 msgid "Light"
-msgstr "Léger"
+msgstr "Clair"
 
 #. i18n-hint: A theme is a consistent visual style across an application's
 #. graphical user interface, including choices of colors, and similarity of images
