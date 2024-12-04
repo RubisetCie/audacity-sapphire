@@ -530,12 +530,6 @@ auto FileMenu()
       ),
 
       Section( "Import-Export",
-         Menu( wxT("ExportOther"), XXO("Expo&rt"),
-            Command( wxT("ExportLabels"), XXO("Export &Labels..."),
-               OnExportLabels,
-               AudioIONotBusyFlag() | LabelTracksExistFlag() )
-         ),
-
          Menu( wxT("Import"), XXO("&Import"),
             Command( wxT("ImportAudio"), XXO("&Audio..."), OnImport,
                AudioIONotBusyFlag(), wxT("Ctrl+Shift+I") ),
@@ -543,6 +537,12 @@ auto FileMenu()
                AudioIONotBusyFlag() ),
             Command( wxT("ImportRaw"), XXO("&Raw Data..."), OnImportRaw,
                AudioIONotBusyFlag() )
+         ),
+
+         Menu( wxT("ExportOther"), XXO("Expo&rt"),
+            Command( wxT("ExportLabels"), XXO("Export &Labels..."),
+               OnExportLabels,
+               AudioIONotBusyFlag() | LabelTracksExistFlag() )
          ),
 
          Command( wxT("Export"), XXO("R&ender Audio..."), OnExportAudio,

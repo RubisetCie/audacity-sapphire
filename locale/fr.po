@@ -14856,6 +14856,10 @@ msgstr "Détecter"
 msgid "&Import"
 msgstr "&Importer"
 
+#: src/menus/FileMenus.cpp
+msgid "Expo&rt"
+msgstr "Expo&rter"
+
 #: src/import/RawAudioGuess.cpp
 msgid "Bad data size. Could not import audio"
 msgstr "Mauvaise taille des données. Impossible d’importer l’audio"
