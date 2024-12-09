@@ -393,12 +393,10 @@ bool WaveClip::GetSamples(samplePtr buffers[], sampleFormat format,
    return result;
 }
 
-/*! @excsafety{Strong} */
 void WaveClip::SetSamples(size_t ii,
    constSamplePtr buffer, sampleFormat format,
    sampleCount start, size_t len, sampleFormat effectiveFormat)
 {
-   StrongInvariantScope scope{ *this };
    assert(ii < NChannels());
    // use Strong-guarantee
    mSequences[ii]->SetSamples(buffer, format,
