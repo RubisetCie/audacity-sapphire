@@ -1696,14 +1696,19 @@ bool NyquistBase::ProcessOne(
       out->Flush();
    }
 
+   // Use sample counts to determine default behaviour - times will rarely be equal.
+   if (out->TimeToLongSamples(mT0) +
+       out->TimeToLongSamples(mOutputTime) ==
+       out->TimeToLongSamples(mT1))
+   {
+      if (!mCurChannelGroup->ReplaceTrackData(mT0, mT1, *tempTrack))
+         return false;
+   }
+   else
    {
       const bool bMergeClips = (mMergeClips < 0)
-                                  // Use sample counts to determine default
-                                  // behaviour - times will rarely be equal.
                                   ?
-                                  (out->TimeToLongSamples(mT0) +
-                                      out->TimeToLongSamples(mOutputTime) ==
-                                   out->TimeToLongSamples(mT1)) :
+                                  false :
                                   mMergeClips != 0;
       PasteTimeWarper warper { mT1, mT0 + tempTrack->GetEndTime() };
       mCurChannelGroup->ClearAndPaste(

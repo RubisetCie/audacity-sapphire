@@ -395,6 +395,9 @@ public:
       bool merge = true, const TimeWarper* effectWarper = nullptr,
       bool clearByTrimming = false) /* not override */;
 
+   bool ReplaceTrackData(
+       double t0, double t1, const WaveTrack& src) /* not override */;
+
    void Silence(double t0, double t1, ProgressReporter reportProgress) override;
    void InsertSilence(double t, double len) override;
 

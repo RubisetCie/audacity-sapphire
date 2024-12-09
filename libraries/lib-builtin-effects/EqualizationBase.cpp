@@ -347,9 +347,7 @@ bool EqualizationBase::Process(EffectInstance&, EffectSettings&)
                goto done;
          }
          pTempTrack->Flush();
-         // Remove trailing data from the temp track
-         pTempTrack->Clear(t1 - t0, pTempTrack->GetEndTime());
-         track->ClearAndPaste(t0, t1, *pTempTrack, true, true);
+         track->ReplaceTrackData(t0, t1, *pTempTrack);
       }
 
       count++;

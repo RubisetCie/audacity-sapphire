@@ -1249,7 +1249,7 @@ void WaveTrack::ClearAndPasteAtSameTempo(
    t1 = SnapToSample(t1);
 
    const auto endTime = src.GetEndTime();
-   double dur = std::min(t1 - t0, endTime);
+   const double dur = std::min(t1 - t0, endTime);
 
    // If duration is 0, then it's just a plain paste
    if (dur == 0.0) {
@@ -1520,6 +1520,45 @@ void WaveTrack::ClearAndPasteAtSameTempo(
          }
       }
    }
+}
+
+bool WaveTrack::ReplaceTrackData(
+    double t0, double t1, const WaveTrack& src)
+{
+    assert(src.NChannels() == NChannels());
+    assert(src.GetRate()   == GetRate());
+    assert(
+        GetProjectTempo(*this).has_value() &&
+        GetProjectTempo(*this) == GetProjectTempo(src));
+
+    const auto start = src.TimeToLongSamples(t0);
+    const auto end = src.TimeToLongSamples(t1);
+    const auto channels = src.NChannels();
+    const auto blockSize = GetMaxBlockSize();
+    auto& track = *this;
+    bool retval = true;
+
+    // Maximum two channels buffer
+    float* buffers[2] = { nullptr };
+    buffers[0] = new float[blockSize];
+    if (channels >= 2)
+        buffers[1] = new float[blockSize];
+
+    const auto buffersCast = reinterpret_cast<const samplePtr*>(buffers);
+    auto pos = start;
+    sampleCount seek = 0l;
+    while (pos < end)
+    {
+        const auto len = limitSampleBufferSize(GetMaxBlockSize(), end - pos);
+        src.DoGet(0, channels, buffersCast, floatSample, seek, len, false);
+        if (!track.SetFloats(buffers, pos, len))
+            retval = false;
+        seek += len;
+        pos += len;
+    }
+    delete[] buffers[0];
+    delete[] buffers[1];
+    return retval;
 }
 
 /*! @excsafety{Strong} */

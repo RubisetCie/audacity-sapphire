@@ -625,10 +625,7 @@ bool NoiseReductionBase::Worker::Process(
          if (ppTempTrack)
          {
             TrackSpectrumTransformer::PostProcess(*pFirstTrack, len);
-            constexpr auto preserveSplits = true;
-            constexpr auto merge = true;
-            track->ClearAndPaste(
-               t0, t0 + tLen, **ppTempTrack, preserveSplits, merge);
+            track->ReplaceTrackData(t0, t0 + tLen, **ppTempTrack);
          }
       }
    }
