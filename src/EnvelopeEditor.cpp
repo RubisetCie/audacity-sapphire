@@ -115,7 +115,6 @@ EnvelopeEditor::EnvelopeEditor(Envelope &envelope, bool mirrored)
    // , mInitialY(-1)
    , mUpper(false)
    , mButton(wxMOUSE_BTN_NONE)
-   , mDirty(false)
 {
 }
 
@@ -224,6 +223,14 @@ bool EnvelopeEditor::HandleMouseButtonDown(const wxMouseEvent & event, wxRect & 
 
    if (bestNum >= 0) {
       mEnvelope.SetDragPoint(bestNum);
+
+      // If button is middle-click, delete the point immediately
+      if (mButton == wxMOUSE_BTN_MIDDLE)
+      {
+         mEnvelope.SetDragPointValid(false);
+         mEnvelope.ClearDragPoint();
+         mEnvelope.SetDragPoint(-1);
+      }
    }
    else {
       // TODO: Extract this into a function CreateNewPoint
@@ -259,7 +266,6 @@ bool EnvelopeEditor::HandleMouseButtonDown(const wxMouseEvent & event, wxRect & 
                                    zoomMin, zoomMax);
 
       mEnvelope.SetDragPoint(mEnvelope.InsertOrReplace(when, newVal));
-      mDirty = true;
    }
 
    mUpper = upper;
@@ -295,8 +301,6 @@ bool EnvelopeEditor::HandleDragging(const wxMouseEvent & event, wxRect & r,
                                float zoomMin, float zoomMax,
                                float WXUNUSED(eMin), float WXUNUSED(eMax))
 {
-   mDirty = true;
-
    wxRect larger = r;
    larger.Inflate(10, 10);
 
