@@ -1225,7 +1225,9 @@ auto EditMenu()
                   JoinClipsAvailableFlag(), wxT("Ctrl+J") ),
                Command( wxT("Disjoin"), XXO("Detac&h at Silences"), OnDisjoin,
                   NotBusyTimeAndTracksFlags, wxT("Ctrl+Alt+J") )
-            )
+            ),
+
+            Menu(wxT("Envelope"), XXO("Envelopes"))
          )
 
       ),

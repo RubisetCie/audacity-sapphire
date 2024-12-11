@@ -117,6 +117,7 @@ public:
    // The function is called 'PasteEnvelope' rather than 'Paste' to make it
    // easier to find where it is used in source code.
    void PasteEnvelope(double t0, const Envelope *e, double sampleDur);
+   bool TrimEnvelope(double t0, double t1, bool trim = false);
 
    void InsertSpace(double t0, double tlen);
 
@@ -241,11 +242,6 @@ private:
     * underlying track (normally) */
    double mTrackLen { 0.0 };
 
-   // TODO: mTrackEpsilon based on assumption of 200KHz.  Needs review if/when
-   // we support higher sample rates.
-   /** \brief The shortest distance apart that points on an envelope can be
-    * before being considered the same point */
-   double mTrackEpsilon { 1.0 / 200000.0 };
    bool mDB;
    double mMinValue, mMaxValue;
    double mDefaultValue;

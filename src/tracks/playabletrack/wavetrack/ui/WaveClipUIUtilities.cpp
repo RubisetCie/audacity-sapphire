@@ -90,8 +90,11 @@ WaveClipUIUtilities::GetWaveClipMenuItems()
       { L"RenameClip", XO("Rename Clip...") },
       { L"ChangePitchAndSpeed", XO("Pitch and Speed...") },
       { L"RenderPitchAndSpeed", XO("Render Pitch and Speed") },
+      {},
+      { L"EnvelopeClear", XO("Clear Envelope") },
+      { L"EnvelopeOutside", XO("Clear Envelope Outside") },
+      { L"EnvelopeTrim", XO("Trim Envelope") },
    };
-   ;
 }
 
 void WaveClipUIUtilities::PushClipSpeedChangedUndoState(

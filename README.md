@@ -18,9 +18,12 @@
 The *Sapphire* version includes quality of life changes that helps me in my workflow, including:
 
 - File explorer prompt on audio rendering before the actual export dialog.
+- Applying effects that doesn't change the length no longer clears the envelope.
 - Audio cursor line extends to multiple tracks below.
+- Added clip options to manage envelope points (Clear, Clamp, etc).
 - Added scrolling to the left of the zero.
-- Non-modal dialogs for non-realtime effects.
+- Non-modal dialogs for real-time compatible effects.
+- Removed advertisements to "Get more effects", etc.
 
 ## Building
 

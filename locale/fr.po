@@ -19006,6 +19006,21 @@ msgstr "Modification de la vitesse du clip à %.01f%%"
 msgid "Changed Speed to %.01f%%"
 msgstr "Changer la vitesse pour %.01f%%"
 
+#: src/tracks/playabletrack/wavetrack/ui/WaveClipUIUtilities.cpp
+#: src/tracks/playabletrack/wavetrack/ui/WaveTrackAffordanceControls.cpp
+msgid "Clear Envelope"
+msgstr "Vider l'enveloppe"
+
+#: src/tracks/playabletrack/wavetrack/ui/WaveClipUIUtilities.cpp
+#: src/tracks/playabletrack/wavetrack/ui/WaveTrackAffordanceControls.cpp
+msgid "Clear Envelope Outside"
+msgstr "Nettoyer l'enveloppe débordante"
+
+#: src/tracks/playabletrack/wavetrack/ui/WaveClipUIUtilities.cpp
+#: src/tracks/playabletrack/wavetrack/ui/WaveTrackAffordanceControls.cpp
+msgid "Trim Envelope"
+msgstr "Couper l'enveloppe"
+
 #: src/tracks/playabletrack/wavetrack/ui/WaveTrackAffordanceControls.cpp
 msgid "Set Wave Clip Name"
 msgstr "Paramétrer le nom du clip Wave"
@@ -19053,6 +19068,14 @@ msgstr "A&ugmenter la hauteur"
 #: src/tracks/playabletrack/wavetrack/ui/WaveTrackAffordanceControls.cpp
 msgid "Pitch &Down"
 msgstr "&Diminuer la hauteur"
+
+#: src/tracks/playabletrack/wavetrack/ui/WaveTrackAffordanceControls.cpp
+msgid "Cleared Envelope"
+msgstr "Enveloppe vidée"
+
+#: src/tracks/playabletrack/wavetrack/ui/WaveTrackAffordanceControls.cpp
+msgid "Trimmed Envelope"
+msgstr "Enveloppe coupée"
 
 #: src/tracks/playabletrack/wavetrack/ui/WaveTrackControls.cpp
 msgid "&Format"

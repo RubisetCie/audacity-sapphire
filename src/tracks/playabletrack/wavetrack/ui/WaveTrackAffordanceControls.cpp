@@ -784,6 +784,49 @@ void OnPitchDown(const CommandContext& context)
    OnPitchShift(context, false);
 }
 
+void OnEnvelopeClear(const CommandContext& context)
+{
+   auto [track, it] = SelectedIntervalOfFocusedTrack(context.project);
+   if (!track)
+      return;
+   const auto interval = (*it).get();
+   auto& env = interval->GetEnvelope();
+   if (!env.IsTrivial()) {
+      env.Clear();
+      ProjectHistory::Get(context.project)
+         .PushState(
+            XO("Clear Envelope"), XO("Cleared Envelope"),
+            UndoPush::CONSOLIDATE);
+      TrackPanel::Get(context.project).RefreshTrack(track.get());
+   }
+}
+
+void OnEnvelopeTrimmer(const CommandContext& context, bool trim)
+{
+   auto [track, it] = SelectedIntervalOfFocusedTrack(context.project);
+   if (!track)
+      return;
+   const auto interval = (*it).get();
+   auto& env = interval->GetEnvelope();
+   if (env.TrimEnvelope(interval->GetPlayStartTime(), interval->GetPlayEndTime(), trim)) {
+      ProjectHistory::Get(context.project)
+         .PushState(
+            XO("Trim Envelope"), XO("Trimmed Envelope"),
+            UndoPush::CONSOLIDATE);
+      TrackPanel::Get(context.project).RefreshTrack(track.get());
+   }
+}
+
+void OnEnvelopeTrim(const CommandContext& context)
+{
+   OnEnvelopeTrimmer(context, true);
+}
+
+void OnEnvelopeOutside(const CommandContext& context)
+{
+   OnEnvelopeTrimmer(context, false);
+}
+
 using namespace MenuRegistry;
 
 // Register menu items
@@ -817,5 +860,23 @@ AttachedItem sAttachment5{
    Command( L"PitchDown", XXO("Pitch &Down"),
       OnPitchDown, SomeClipIsSelectedFlag(), Options{ wxT("Alt+Down") }),
    wxT("Edit/Other/Clip")
+};
+
+AttachedItem sAttachment6{
+   Command( L"EnvelopeClear", XXO("Clear Envelope"),
+      OnEnvelopeClear, SomeClipIsSelectedFlag()),
+   wxT("Edit/Other/Clip/Envelope")
+};
+
+AttachedItem sAttachment7{
+   Command( L"EnvelopeOutside", XXO("Clear Envelope Outside"),
+      OnEnvelopeOutside, SomeClipIsSelectedFlag()),
+   wxT("Edit/Other/Clip/Envelope")
+};
+
+AttachedItem sAttachment8{
+   Command( L"EnvelopeTrim", XXO("Trim Envelope"),
+      OnEnvelopeTrim, SomeClipIsSelectedFlag()),
+   wxT("Edit/Other/Clip/Envelope")
 };
 }

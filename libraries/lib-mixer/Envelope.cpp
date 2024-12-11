@@ -305,19 +305,6 @@ void Envelope::CopyRange(const Envelope &orig, size_t begin, size_t end)
       AddPointAtEnd( mTrackLen, orig.GetValue(mOffset + mTrackLen));
 }
 
-#if 0
-/// Limit() limits a double value to a range.
-/// TODO: Move to a general utilities source file.
-static double Limit( double Lo, double Value, double Hi )
-{
-   if( Value < Lo )
-      return Lo;
-   if( Value > Hi )
-      return Hi;
-   return Value;
-}
-#endif
-
 bool Envelope::HandleXMLTag(const std::string_view& tag, const AttributesList& attrs)
 {
    // Return unless it's the envelope tag.
@@ -482,7 +469,6 @@ void Envelope::CollapseRegion(double t0, double t1, double sampleDur) noexcept
 // envelope point applies to the first sample, but the t=tracklen
 // envelope point applies one-past the last actual sample.
 // t0 should be in the domain of this; if not, it is trimmed.
-/*! @excsafety{No-fail} */
 void Envelope::PasteEnvelope( double t0, const Envelope *e, double sampleDur )
 {
    const bool wasEmpty = (this->mEnv.size() == 0);
@@ -506,10 +492,9 @@ void Envelope::PasteEnvelope( double t0, const Envelope *e, double sampleDur )
 
    // Make t0 relative to the offset of the envelope we are pasting into,
    // and trim it to the domain of this
-   t0 = std::min( mTrackLen, std::max( 0.0, t0 - mOffset ) );
+   t0 = std::min( mTrackLen, std::max(0.0, t0 - mOffset ) );
 
    // Adjust if the insertion point rounds off near a discontinuity in this
-   if ( true )
    {
       double newT0;
       auto range = EqualRange( t0, sampleDur );
@@ -565,6 +550,46 @@ void Envelope::PasteEnvelope( double t0, const Envelope *e, double sampleDur )
 
    // Guarantee monotonicity of times, against little round-off mistakes perhaps
    ConsistencyCheck();
+}
+
+bool Envelope::TrimEnvelope(double t0, double t1, bool trim)
+{
+    ssize_t i1 = -1, i2 = -1;
+    double v1, v2;
+
+    // Calculate edge values if trimming enabled
+    if (trim) {
+        v1 = GetValue(t0);
+        v2 = GetValue(t1);
+    }
+
+    // Remove all the points beyond the interval (assumes the array is sorted by time)
+    for ( size_t i = 0, count = mEnv.size(); i < count; i++ ) {
+        const double thisT = mEnv[i].GetT();
+        if ( thisT < t0 )
+            i1 = i;
+        else if ( thisT > t1 ) {
+            i2 = i;
+            break;
+        }
+    }
+
+    if (i1 > -1 || i2 > -1) {
+        // Trim the end before the beginning, to not invalidating the index
+        if (i2 > -1)
+            mEnv.erase(mEnv.begin() + i2, mEnv.end());
+        if (i1 > -1)
+            mEnv.erase(mEnv.begin(), mEnv.begin() + i1 + 1);
+
+        if (trim) {
+            mEnv.insert(mEnv.begin(), EnvPoint(t0, v1));
+            mEnv.emplace_back(EnvPoint(t1, v2));
+        }
+
+        ++mVersion;
+        return true;
+    }
+    return false;
 }
 
 /*! @excsafety{No-fail} */
