@@ -8,10 +8,10 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: audacity 3.7.0\n"
+"Project-Id-Version: audacity 3.7.1\n"
 "Report-Msgid-Bugs-To: audacity-translation@lists.sourceforge.net\n"
 "POT-Creation-Date: 2024-10-28 11:47+0100\n"
-"PO-Revision-Date: 2024-10-30 00:00+0000\n"
+"PO-Revision-Date: 2024-11-12 00:00+0000\n"
 "Last-Translator: Grzegorz Pruchniakowski <grzegorz.pruchniakowski@gmail.com>, 2024\n"
 "Language-Team: Polish (https://app.transifex.com/audacity/teams/164520/pl/)\n"
 "Language: pl\n"
@@ -9502,10 +9502,10 @@ msgid ""
 "is needed to keep their external dependencies in the right place.\n"
 "New projects will be self-contained and are less risky."
 msgstr ""
-"Twój projekt jest obecnie samowystarczalny; nie zależy on od żadnych zewnętrznych plików dźwiękowych. \n"
+"Twój projekt jest obecnie samodzielny; nie zależy on od żadnych zewnętrznych plików dźwiękowych. \n"
 "\n"
-"Niektóre starsze projekty Audacity mogą być niesamodzielne i należy zachować ostrożność, aby zachować ich zewnętrzne zależności we właściwym miejscu.\n"
-"Nowe projekty będą niezależne i mniej ryzykowne."
+"Niektóre starsze projekty Audacity mogą nie być samodzielne i należy zachować ostrożność, aby zachować ich zewnętrzne zależności we właściwym miejscu.\n"
+"Nowe projekty będą samodzielne i mniej ryzykowne."
 
 #: src/Dependencies.cpp
 msgid "Dependency Check"
@@ -11519,7 +11519,7 @@ msgstr "Uzyskaj darmowe wtyczki i dźwięki"
 #: src/WhatsNewDialog.cpp
 #, c-format
 msgid "<p>Check out our [[%s|Muse Hub app]] for a wide range of audio plugins for Audacity users</p>"
-msgstr "<p>Sprawdź naszą [[%s|aplikację Muse Hub]], w której znajdziesz szeroką gamę wtyczek dźwiękowych dla użytkowników Audacity</p>"
+msgstr "<p>Sprawdź naszą [[%s|aplikację MuseHub]], w której znajdziesz szeroką gamę wtyczek dźwiękowych dla użytkowników Audacity</p>"
 
 #: src/WhatsNewDialog.cpp
 msgid "A vocal processing effect that enhances vocal clarity and depth."
@@ -11560,7 +11560,7 @@ msgstr "Narzędzie do separacji ścieżek w czasie rzeczywistym, umożliwiające
 #: src/WhatsNewDialog.cpp
 #, c-format
 msgid "Check out a variety of plugins by well known developers available on [[%s|MuseHub]]."
-msgstr "Sprawdź różnorodne wtyczki od znanych deweloperów dostępne na [[%s|Muse Hubie]]."
+msgstr "Sprawdź różnorodne wtyczki od znanych deweloperów dostępne na [[%s|MuseHubie]]."
 
 #: src/WhatsNewDialog.cpp
 msgid "A multiband compressor offering precise control over frequencies."
@@ -11576,7 +11576,7 @@ msgstr "Obejrzyj wideo o wydaniu"
 
 #: src/WhatsNewDialog.cpp
 msgid "Available on MuseHub"
-msgstr "Dostępne na Muse Hubie"
+msgstr "Dostępne na MuseHubie"
 
 #: src/WhatsNewDialog.cpp
 msgid "View tutorials"
@@ -13001,7 +13001,7 @@ msgstr "W&spółczynnik dźwięk/cisza:"
 
 #: src/effects/DtmfGen.cpp
 msgid "Duty cycle:"
-msgstr "Cykl:"
+msgstr "Cykl pracy:"
 
 #: src/effects/DtmfGen.cpp
 #, c-format
@@ -14773,7 +14773,7 @@ msgstr "Brak konkretnych opcji formatowania"
 #. i18n-hint: 'Raw' means 'unprocessed' here and should usually be translated.
 #: src/import/ImportRaw.cpp
 msgid "Import Raw"
-msgstr "Importuj dane surowe"
+msgstr "Importuj surowe"
 
 #: src/import/ImportRaw.cpp
 msgid "Import Raw Data"
@@ -15035,7 +15035,7 @@ msgstr "Powielone"
 
 #: src/menus/EditMenus.cpp
 msgid "Duplicate"
-msgstr "Duplikuj"
+msgstr "Powiel"
 
 #: src/menus/EditMenus.cpp
 msgid "Cut to clipboard and leave gap"
