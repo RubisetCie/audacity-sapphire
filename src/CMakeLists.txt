@@ -246,8 +246,8 @@ set( SOURCES
       commands/AppCommandEvent.h
       commands/AudacityCommand.cpp
       commands/AudacityCommand.h
-      commands/BatchEvalCommand.cpp
-      commands/BatchEvalCommand.h
+      # commands/BatchEvalCommand.cpp
+      # commands/BatchEvalCommand.h
       commands/Command.cpp
       commands/Command.h
       commands/CommandBuilder.cpp
@@ -265,47 +265,47 @@ set( SOURCES
       commands/CommandSignature.h
       commands/CommandType.cpp
       commands/CommandType.h
-      commands/CompareAudioCommand.cpp
-      commands/CompareAudioCommand.h
-      commands/Demo.cpp
-      commands/Demo.h
-      commands/DragCommand.cpp
-      commands/DragCommand.h
-      commands/GetInfoCommand.cpp
-      commands/GetInfoCommand.h
-      commands/GetTrackInfoCommand.cpp
-      commands/GetTrackInfoCommand.h
-      commands/HelpCommand.cpp
-      commands/HelpCommand.h
-      commands/ImportExportCommands.cpp
-      commands/ImportExportCommands.h
-      commands/LoadCommands.cpp
-      commands/LoadCommands.h
-      commands/MessageCommand.cpp
-      commands/MessageCommand.h
-      commands/OpenSaveCommands.cpp
-      commands/OpenSaveCommands.h
-      commands/PreferenceCommands.cpp
-      commands/PreferenceCommands.h
-      commands/ResponseQueue.cpp
-      commands/ResponseQueue.h
+      # commands/CompareAudioCommand.cpp
+      # commands/CompareAudioCommand.h
+      # commands/Demo.cpp
+      # commands/Demo.h
+      # commands/DragCommand.cpp
+      # commands/DragCommand.h
+      # commands/GetInfoCommand.cpp
+      # commands/GetInfoCommand.h
+      # commands/GetTrackInfoCommand.cpp
+      # commands/GetTrackInfoCommand.h
+      # commands/HelpCommand.cpp
+      # commands/HelpCommand.h
+      # commands/ImportExportCommands.cpp
+      # commands/ImportExportCommands.h
+      # commands/LoadCommands.cpp
+      # commands/LoadCommands.h
+      # commands/MessageCommand.cpp
+      # commands/MessageCommand.h
+      # commands/OpenSaveCommands.cpp
+      # commands/OpenSaveCommands.h
+      # commands/PreferenceCommands.cpp
+      # commands/PreferenceCommands.h
+      # commands/ResponseQueue.cpp
+      # commands/ResponseQueue.h
       commands/ScriptCommandRelay.cpp
       commands/ScriptCommandRelay.h
-      commands/SelectCommand.cpp
-      commands/SelectCommand.h
-      commands/SetClipCommand.cpp
-      commands/SetClipCommand.h
-      commands/SetEnvelopeCommand.cpp
-      commands/SetEnvelopeCommand.h
-      commands/SetLabelCommand.cpp
-      commands/SetLabelCommand.h
-      commands/SetProjectCommand.cpp
-      commands/SetProjectCommand.h
-      commands/SetTrackInfoCommand.cpp
-      commands/SetTrackInfoCommand.h
+      # commands/SelectCommand.cpp
+      # commands/SelectCommand.h
+      # commands/SetClipCommand.cpp
+      # commands/SetClipCommand.h
+      # commands/SetEnvelopeCommand.cpp
+      # commands/SetEnvelopeCommand.h
+      # commands/SetLabelCommand.cpp
+      # commands/SetLabelCommand.h
+      # commands/SetProjectCommand.cpp
+      # commands/SetProjectCommand.h
+      # commands/SetTrackInfoCommand.cpp
+      # commands/SetTrackInfoCommand.h
       commands/Validators.h
-      commands/wxCommandTargets.cpp
-      commands/wxCommandTargets.h
+      # commands/wxCommandTargets.cpp
+      # commands/wxCommandTargets.h
 
       # Built-in Effects
 
