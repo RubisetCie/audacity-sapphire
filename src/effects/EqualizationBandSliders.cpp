@@ -146,7 +146,7 @@ void EqualizationBandSliders::EnvLogToLin(void)
    double denom = hiLog - loLog;
 
    for (size_t i = 0; i < numPoints; i++)
-      linEnvelope.Insert(pow( 10., ((when[i] * denom) + loLog))/hiFreq  , value[i]);
+      linEnvelope.Insert(EnvPoint{ pow( 10., ((when[i] * denom) + loLog))/hiFreq, value[i] });
    linEnvelope.Reassign(1., value[numPoints-1]);
 }
 
@@ -182,13 +182,13 @@ void EqualizationBandSliders::EnvLinToLog(void)
          // Caution: on Linux, when when == 20, the log calculation rounds
          // to just under zero, which causes an assert error.
          double flog = (log10(when[i]*hiFreq )-loLog)/denom;
-         logEnvelope.Insert(std::max(0.0, flog) , value[i]);
+         logEnvelope.Insert(EnvPoint{ std::max(0.0, flog) , value[i] });
       }
       else
       {  //get the first point as close as we can to the last point requested
          changed = true;
          double v = value[i];
-         logEnvelope.Insert(0., v);
+         logEnvelope.Insert(EnvPoint{ 0., v });
       }
    }
    logEnvelope.Reassign(1., value[numPoints - 1]);
@@ -382,7 +382,7 @@ void EqualizationBandSliders::GraphicEQ(Envelope &env)
             }
             if(mWhens[i]<=0.)
                env.Reassign(0., value);
-            env.Insert( mWhens[i], value );
+            env.Insert(EnvPoint{ mWhens[i], value });
          }
          env.Reassign( 1., value );
          break;
@@ -426,7 +426,7 @@ void EqualizationBandSliders::GraphicEQ(Envelope &env)
             }
             if(mWhens[i]<=0.)
                env.Reassign(0., value);
-            env.Insert( mWhens[i], value );
+            env.Insert(EnvPoint{ mWhens[i], value });
          }
          env.Reassign( 1., value );
          break;
@@ -439,7 +439,7 @@ void EqualizationBandSliders::GraphicEQ(Envelope &env)
          spline(mWhenSliders, mEQVals, mBandsInUse+1, y2);
          for(double xf=0; xf<1.; xf+=1./NUM_PTS)
          {
-            env.Insert(xf, splint(mWhenSliders, mEQVals, mBandsInUse+1, y2, xf));
+            env.Insert(EnvPoint{ xf, splint(mWhenSliders, mEQVals, mBandsInUse+1, y2, xf) });
          }
          break;
       }

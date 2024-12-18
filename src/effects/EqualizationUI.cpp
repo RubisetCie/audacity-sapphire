@@ -667,7 +667,7 @@ void EqualizationUI::UpdateGraphic()
       {
          when = freq/hiFreq;
          value = linEnvelope.GetValue(when);
-         linEnvelope.Insert(when, value);
+         linEnvelope.Insert(EnvPoint{ when, value });
       }
 
       mBands.EnvLinToLog();

@@ -94,6 +94,7 @@ public:
    void SetExponential(bool db) { mDB = db; }
 
    void Flatten(double value);
+   void Flatten();
 
    double GetMinValue() const { return mMinValue; }
    double GetMaxValue() const { return mMaxValue; }
@@ -183,7 +184,7 @@ public:
 
    // Insert a point (without replacement)
    // for now assumed sequential.
-   void Insert(double when, double value);
+   void Insert(const EnvPoint& p);
 
    /** \brief Return number of points */
    size_t GetNumberOfPoints() const;

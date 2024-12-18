@@ -78,18 +78,11 @@ bool Envelope::ConsistencyCheck()
 
          while ( nextI - ii > 2 ) {
             // too many coincident time values
-            if ((int)ii == mDragPoint || (int)nextI - 1 == mDragPoint)
-               // forgivable
-               ;
-            else {
-               consistent = false;
-               // repair it
-               Delete( nextI - 2 );
-               if (mDragPoint >= (int)nextI - 2)
-                  --mDragPoint;
-               --nextI, --count;
-               // wxLogError
-            }
+            consistent = false;
+            // repair it
+            Delete( nextI - 2 );
+            --nextI, --count;
+            // wxLogError
          }
 
          ii = nextI;
@@ -143,6 +136,13 @@ void Envelope::Flatten(double value)
    mDefaultValue = ClampValue(value);
 
    ++mVersion;
+}
+
+void Envelope::Flatten()
+{
+    mEnv.clear();
+
+    ++mVersion;
 }
 
 void Envelope::SetDragPoint(int dragPoint)
@@ -241,7 +241,7 @@ void Envelope::SetRange(double minValue, double maxValue) {
 // copy of another, or when truncating a track.
 void Envelope::AddPointAtEnd( double t, double val )
 {
-   mEnv.push_back( EnvPoint{ t, val } );
+   mEnv.emplace_back( EnvPoint{ t, val } );
 
    // Assume copied points were stored by nondecreasing time.
    // Allow no more than two points at exactly the same time.
@@ -313,10 +313,10 @@ bool Envelope::HandleXMLTag(const std::string_view& tag, const AttributesList& a
 
    int numPoints = -1;
 
-   for (auto pair : attrs)
+   for (const auto& pair : attrs)
    {
-      auto attr = pair.first;
-      auto value = pair.second;
+      const auto attr = pair.first;
+      const auto value = pair.second;
 
       if (attr == "numpoints")
          value.TryGet(numPoints);
@@ -335,7 +335,7 @@ XMLTagHandler *Envelope::HandleXMLChild(const std::string_view& tag)
    if (tag != "controlpoint")
       return NULL;
 
-   mEnv.push_back( EnvPoint{} );
+   mEnv.emplace_back( EnvPoint{} );
    return &mEnv.back();
 }
 
@@ -372,9 +372,9 @@ void Envelope::Insert(int point, const EnvPoint &p) noexcept
    ++mVersion;
 }
 
-void Envelope::Insert(double when, double value)
+void Envelope::Insert(const EnvPoint& p)
 {
-   mEnv.push_back(EnvPoint { when, value });
+   mEnv.emplace_back(p);
 
    ++mVersion;
 }
@@ -589,6 +589,8 @@ bool Envelope::TrimEnvelope(double t0, double t1, bool trim)
         ++mVersion;
         return true;
     }
+
+    ++mVersion;
     return false;
 }
 
@@ -1461,13 +1463,4 @@ double Envelope::SolveIntegralOfInverse( double t0, double area ) const
          return lastT + area * lastVal;
       }
    }();
-}
-
-static void checkResult( int n, double a, double b )
-{
-   if( (a-b > 0 ? a-b : b-a) > 0.0000001 )
-   {
-      wxPrintf( "Envelope:  Result #%d is: %f, should be %f\n", n, a, b );
-      //exit( -1 );
-   }
 }

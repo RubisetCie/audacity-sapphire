@@ -792,12 +792,12 @@ void OnEnvelopeClear(const CommandContext& context)
    const auto interval = (*it).get();
    auto& env = interval->GetEnvelope();
    if (!env.IsTrivial()) {
-      env.Clear();
+      env.Flatten();
       ProjectHistory::Get(context.project)
          .PushState(
             XO("Clear Envelope"), XO("Cleared Envelope"),
             UndoPush::CONSOLIDATE);
-      TrackPanel::Get(context.project).RefreshTrack(track.get());
+      //TrackPanel::Get(context.project).RefreshTrack(track.get());
    }
 }
 
@@ -813,7 +813,7 @@ void OnEnvelopeTrimmer(const CommandContext& context, bool trim)
          .PushState(
             XO("Trim Envelope"), XO("Trimmed Envelope"),
             UndoPush::CONSOLIDATE);
-      TrackPanel::Get(context.project).RefreshTrack(track.get());
+      //TrackPanel::Get(context.project).RefreshTrack(track.get());
    }
 }
 

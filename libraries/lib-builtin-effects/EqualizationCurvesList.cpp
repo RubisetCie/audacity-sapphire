@@ -151,7 +151,7 @@ void EqualizationCurvesList::setCurve(int currentCurve)
              - loLog) / denom;
       }
       value = mCurves[currentCurve].points[0].dB;
-      env.Insert(std::min(1.0, std::max(0.0, when)), value);
+      env.Insert(EnvPoint{ std::min(1.0, std::max(0.0, when)), value });
       ForceRecalc();
       return;
    }
@@ -171,7 +171,7 @@ void EqualizationCurvesList::setCurve(int currentCurve)
          when = mCurves[currentCurve].points[pointCount].Freq / hiFreq;
          value = mCurves[currentCurve].points[pointCount].dB;
          if(when <= 1) {
-            env.Insert(when, value);
+            env.Insert(EnvPoint{ when, value });
             if (when == 1)
                break;
          }
@@ -190,7 +190,7 @@ void EqualizationCurvesList::setCurve(int currentCurve)
             }
             else
                value = nextDB;
-            env.Insert(when, value);
+            env.Insert(EnvPoint{ when, value });
             break;
          }
       }
@@ -212,7 +212,7 @@ void EqualizationCurvesList::setCurve(int currentCurve)
          // All points below 20 Hz, so just use final point.
          when = 0.0;
          value = mCurves[currentCurve].points[numPoints-1].dB;
-         env.Insert(when, value);
+         env.Insert(EnvPoint{ when, value });
          ForceRecalc();
          return;
       }
@@ -227,7 +227,7 @@ void EqualizationCurvesList::setCurve(int currentCurve)
          double nextDB = mCurves[currentCurve].points[firstAbove20Hz].dB;
          when = 0.0;
          value = nextDB - ((nextDB - prevDB) * ((nextF - loLog) / (nextF - prevF)));
-         env.Insert(when, value);
+         env.Insert(EnvPoint{ when, value });
       }
 
       // Now get the rest.
@@ -239,7 +239,7 @@ void EqualizationCurvesList::setCurve(int currentCurve)
          when = (flog - loLog)/denom;
          value = mCurves[currentCurve].points[pointCount].dB;
          if(when <= 1.0) {
-            env.Insert(when, value);
+            env.Insert(EnvPoint{ when, value });
          }
          else {
             // This looks weird when adjusting curve in Draw mode if
@@ -263,7 +263,7 @@ void EqualizationCurvesList::setCurve(int currentCurve)
                   ((value - lastDB) *
                      ((log10(hiFreq) - logLastF) / (flog - logLastF)));
             }
-            env.Insert(when, value);
+            env.Insert(EnvPoint{ when, value });
             break;
          }
       }
