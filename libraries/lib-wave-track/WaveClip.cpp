@@ -1095,7 +1095,7 @@ void WaveClip::WriteXML(size_t ii, XMLWriter &xmlFile) const
 }
 
 /*! @excsafety{Strong} */
-bool WaveClip::Paste(double t0, const WaveClip& o)
+bool WaveClip::Paste(double t0, const WaveClip& o, bool append)
 {
    const WaveClip *pOther = &o;
    WaveClipHolder dup;
@@ -1214,7 +1214,7 @@ bool WaveClip::Paste(double t0, const WaveClip& o)
    const auto timeOffsetInEnvelope =
       s0.as_double() * GetStretchRatio() / mRate + GetSequenceStartTime();
    mEnvelope->PasteEnvelope(
-      timeOffsetInEnvelope, newClip->mEnvelope.get(), sampleTime);
+      timeOffsetInEnvelope, newClip->mEnvelope.get(), sampleTime, append);
    OffsetCutLines(t0, newClip->GetPlayEndTime() - newClip->GetPlayStartTime());
 
    for (auto &holder : newCutlines)

@@ -83,12 +83,14 @@ public:
 
    bool IsTrivial() const;
 
-   // Return true if violations of point ordering invariants were detected
-   // and repaired
-   bool ConsistencyCheck();
+   // Repairs if violations of point ordering invariants were detected
+   void ConsistencyCheck();
 
    double GetOffset() const { return mOffset; }
    double GetTrackLen() const { return mTrackLen; }
+   double GetDefaultValue() const { return mDefaultValue; }
+
+   size_t GetVersion() const { return mVersion; }
 
    bool GetExponential() const { return mDB; }
    void SetExponential(bool db) { mDB = db; }
@@ -117,7 +119,7 @@ public:
    // of an appropriate number, than use hidden arbitrary constants.
    // The function is called 'PasteEnvelope' rather than 'Paste' to make it
    // easier to find where it is used in source code.
-   void PasteEnvelope(double t0, const Envelope *e, double sampleDur);
+   void PasteEnvelope(double t0, const Envelope *e, double sampleDur, bool append = false);
    bool TrimEnvelope(double t0, double t1, bool trim = false);
 
    void InsertSpace(double t0, double tlen);
@@ -194,10 +196,6 @@ public:
    {
       return mEnv[index];
    }
-
-   double GetDefaultValue() const;
-
-   size_t GetVersion() const;
 
 
 private:

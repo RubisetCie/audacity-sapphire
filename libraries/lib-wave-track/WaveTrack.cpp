@@ -2264,7 +2264,7 @@ void WaveTrack::Join(
       }
 
       // wxPrintf("Pasting at %.6f\n", t);
-      bool success = newClip->Paste(t, *clip);
+      bool success = newClip->Paste(t, *clip, true);
       assert(success); // promise of DoCreateClip
 
       t = newClip->GetPlayEndTime();

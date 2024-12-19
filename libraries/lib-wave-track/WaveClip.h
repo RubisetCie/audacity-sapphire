@@ -710,7 +710,7 @@ public:
     @post result: `this->NChannels() != other.NChannels() ||
        this->GetStretchRatio() != other.GetStretchRatio() || result`
     */
-   bool Paste(double t0, const WaveClip& other);
+   bool Paste(double t0, const WaveClip& other, bool append = false);
 
    //! Insert silence - note that this is an efficient operation for large
    //! amounts of silence
