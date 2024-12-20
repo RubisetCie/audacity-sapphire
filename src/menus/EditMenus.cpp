@@ -10,7 +10,6 @@
 #include "ProjectRate.h"
 #include "ProjectTimeSignature.h"
 #include "../ProjectWindows.h"
-#include "../ProjectWindows.h"
 #include "../SelectUtilities.h"
 #include "SyncLock.h"
 #include "TempoChange.h"

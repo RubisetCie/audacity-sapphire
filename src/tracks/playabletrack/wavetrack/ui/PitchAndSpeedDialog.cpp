@@ -35,7 +35,6 @@
 #include "ShuttleGui.h"
 #include "ShuttleGuiScopedSizer.h"
 #include "SpinControl.h"
-#include "WaveClip.h"
 #include "wxWidgetsWindowPlacement.h"
 
 #include <regex>
