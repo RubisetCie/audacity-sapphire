@@ -23,6 +23,7 @@ The *Sapphire* version includes quality of life changes that helps me in my work
 - Added clip options to manage envelope points (Clear, Clamp, etc).
 - Added scrolling to the left of the zero.
 - Non-modal dialogs for real-time compatible effects.
+- Fixed VST/VST3 parameters being reset when audio is played.
 - Removed advertisements to "Get more effects", etc.
 
 ## Building
