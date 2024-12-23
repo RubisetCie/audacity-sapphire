@@ -1761,7 +1761,7 @@ bool VSTWrapper::FetchSettings(VSTSettings& vstSettings, bool doFetch) const
    return true;
 }
 
-bool VSTWrapper::StoreSettings(const VSTSettings& vstSettings) const
+bool VSTWrapper::StoreSettings(const VSTSettings& vstSettings, bool ignoreChunks) const
 {
    // First, make sure settings are compatibile with the plugin
    if ((vstSettings.mUniqueID  != mAEffect->uniqueID)   ||
@@ -1771,15 +1771,16 @@ bool VSTWrapper::StoreSettings(const VSTSettings& vstSettings) const
       return false;
    }
 
-
-   // Try using the chunk first (if available)
-   auto &chunk = vstSettings.mChunk;
-   if (!chunk.empty())
+   if (!ignoreChunks)
    {
-      VstPatchChunkInfo info = { 1, mAEffect->uniqueID, mAEffect->version, mAEffect->numParams, "" };
-      callSetChunk(true, chunk.size(), const_cast<char *>(chunk.data()), &info);
+      // Try using the chunk first (if available)
+      auto &chunk = vstSettings.mChunk;
+      if (!chunk.empty())
+      {
+         VstPatchChunkInfo info = { 1, mAEffect->uniqueID, mAEffect->version, mAEffect->numParams, "" };
+         callSetChunk(true, chunk.size(), const_cast<char *>(chunk.data()), &info);
+      }
    }
-
 
    // Settings (like the message) may store both a chunk, and also accumulated
    // slider movements to reapply after the chunk change.  Or it might be

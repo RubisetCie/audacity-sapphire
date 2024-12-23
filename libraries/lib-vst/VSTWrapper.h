@@ -155,7 +155,7 @@ struct VST_API VSTWrapper
 
    bool FetchSettings(VSTSettings& vst3Settings, bool doFetch=true) const;
 
-   bool StoreSettings(const VSTSettings& vst3settings) const;
+   bool StoreSettings(const VSTSettings& vst3settings, bool ignoreChunks=false) const;
 
    VstPatchChunkInfo GetChunkInfo() const;
 

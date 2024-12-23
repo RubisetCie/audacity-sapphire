@@ -88,7 +88,7 @@ bool VSTInstance::ProcessInitialize(
    // Automate() is called-back by the plug-in during callSetParameter.
    // So this avoids a dangling reference.
    auto copiedSettings = GetSettings(settings);
-   StoreSettings(copiedSettings);
+   StoreSettings(copiedSettings, true);
 
    return DoProcessInitialize(sampleRate);
 }
