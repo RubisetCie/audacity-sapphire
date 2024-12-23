@@ -74,7 +74,7 @@ hold information about one contributor to Audacity.
 // To substitute into many other translatable strings
 static const auto ProgramName =
    //XO("Audacity");
-   Verbatim("Audacity");
+   Verbatim("Audacity Sapphire");
 
 void AboutDialog::CreateCreditsList()
 {
@@ -243,6 +243,7 @@ void AboutDialog::CreateCreditsList()
    AddCredit(wxT("Tom Woodhams"), developerFormat, roleContributor);
    AddCredit(wxT("Mark Young"), developerFormat, roleContributor);
    AddCredit(wxT("Wing Yu"), developerFormat, roleContributor);
+   AddCredit(wxT("Matthieu Carteron"), developerFormat, roleContributor);
 
    // Website and Graphics
    AddCredit(wxT("Shinta Carolinasari"), webDeveloperFormat, roleGraphics);
