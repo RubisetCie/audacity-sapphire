@@ -784,6 +784,21 @@ void OnPitchDown(const CommandContext& context)
    OnPitchShift(context, false);
 }
 
+void OnEnvelopeCheck(const CommandContext& context)
+{
+    auto [track, it] = SelectedIntervalOfFocusedTrack(context.project);
+    if (!track)
+        return;
+    const auto interval = (*it).get();
+    auto& env = interval->GetEnvelope();
+    if (env.ConsistencyCheck()) {
+        ProjectHistory::Get(context.project)
+            .PushState(
+                XO("Check Envelope Consistency"), XO("Checked Envelope Consistency"),
+                UndoPush::CONSOLIDATE);
+    }
+}
+
 void OnEnvelopeClear(const CommandContext& context)
 {
    auto [track, it] = SelectedIntervalOfFocusedTrack(context.project);
@@ -863,18 +878,24 @@ AttachedItem sAttachment5{
 };
 
 AttachedItem sAttachment6{
+   Command(L"EnvelopeCheck", XXO("Check Envelope Consistency"),
+      OnEnvelopeCheck, SomeClipIsSelectedFlag()),
+   wxT("Edit/Other/Clip/Envelope")
+};
+
+AttachedItem sAttachment7{
    Command( L"EnvelopeClear", XXO("Clear Envelope"),
       OnEnvelopeClear, SomeClipIsSelectedFlag()),
    wxT("Edit/Other/Clip/Envelope")
 };
 
-AttachedItem sAttachment7{
+AttachedItem sAttachment8{
    Command( L"EnvelopeOutside", XXO("Clear Envelope Outside"),
       OnEnvelopeOutside, SomeClipIsSelectedFlag()),
    wxT("Edit/Other/Clip/Envelope")
 };
 
-AttachedItem sAttachment8{
+AttachedItem sAttachment9{
    Command( L"EnvelopeTrim", XXO("Trim Envelope"),
       OnEnvelopeTrim, SomeClipIsSelectedFlag()),
    wxT("Edit/Other/Clip/Envelope")

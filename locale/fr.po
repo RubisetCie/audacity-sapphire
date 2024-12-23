@@ -18409,6 +18409,11 @@ msgstr "Nettoyer l'enveloppe débordante"
 msgid "Trim Envelope"
 msgstr "Couper l'enveloppe"
 
+#: src/tracks/playabletrack/wavetrack/ui/WaveClipUIUtilities.cpp
+#: src/tracks/playabletrack/wavetrack/ui/WaveTrackAffordanceControls.cpp
+msgid "Check Envelope Consistency"
+msgstr "Vérifier cohérence de l'enveloppe"
+
 #: src/tracks/playabletrack/wavetrack/ui/WaveTrackAffordanceControls.cpp
 msgid "Set Wave Clip Name"
 msgstr "Paramétrer le nom du clip Wave"
@@ -18464,6 +18469,10 @@ msgstr "Enveloppe vidée"
 #: src/tracks/playabletrack/wavetrack/ui/WaveTrackAffordanceControls.cpp
 msgid "Trimmed Envelope"
 msgstr "Enveloppe coupée"
+
+#: src/tracks/playabletrack/wavetrack/ui/WaveTrackAffordanceControls.cpp
+msgid "Checked Envelope Consistency"
+msgstr "Cohérence de l'enveloppe vérifiée"
 
 #: src/tracks/playabletrack/wavetrack/ui/WaveTrackControls.cpp
 msgid "&Format"

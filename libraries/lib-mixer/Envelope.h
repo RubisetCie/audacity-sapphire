@@ -84,7 +84,7 @@ public:
    bool IsTrivial() const;
 
    // Repairs if violations of point ordering invariants were detected
-   void ConsistencyCheck();
+   bool ConsistencyCheck();
 
    double GetOffset() const { return mOffset; }
    double GetTrackLen() const { return mTrackLen; }

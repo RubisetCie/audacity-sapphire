@@ -91,6 +91,7 @@ WaveClipUIUtilities::GetWaveClipMenuItems()
       { L"ChangePitchAndSpeed", XO("Pitch and Speed...") },
       { L"RenderPitchAndSpeed", XO("Render Pitch and Speed") },
       {},
+      { L"EnvelopeCheck", XO("Check Envelope Consistency") },
       { L"EnvelopeClear", XO("Clear Envelope") },
       { L"EnvelopeOutside", XO("Clear Envelope Outside") },
       { L"EnvelopeTrim", XO("Trim Envelope") },

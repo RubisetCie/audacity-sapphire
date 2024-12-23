@@ -60,17 +60,19 @@ bool Envelope::IsTrivial() const
    return mDefaultValue == 1.0 && mEnv.empty();
 }
 
-void Envelope::ConsistencyCheck()
+bool Envelope::ConsistencyCheck()
 {
+   bool modified = false;
    size_t count = mEnv.size();
    if ( count <= 1 )
-      return;
+      return false;
 
    // First ensure the envelope points are in order
    bool disorder = false;
    for ( size_t i = 0; i < count-1; ) {
       if ( mEnv[i].GetT() > mEnv[++i].GetT() ) {
          disorder = true;
+         modified = true;
          break;
       }
    }
@@ -90,6 +92,7 @@ void Envelope::ConsistencyCheck()
       const double nextV = mEnv[i+1].GetVal();
       if ( nextT - thisT < EPSILON && fabs(thisV - nextV) <= EPSILON ) {
          mEnv.erase(mEnv.begin() + (i--));
+         modified = true;
          count--;
       }
    }
@@ -102,6 +105,7 @@ void Envelope::ConsistencyCheck()
       if ( fabs(cValue - pValue) <= EPSILON &&
            fabs(cValue - nValue) <= EPSILON ) {
           mEnv.erase(mEnv.begin() + (i--));
+          modified = true;
           count--;
       }
    }
@@ -111,6 +115,7 @@ void Envelope::ConsistencyCheck()
 #if defined(_DEBUG)
    ++mVersion;
 #endif
+   return modified;
 }
 
 /// Rescale function for time tracks (could also be used for other tracks though).
