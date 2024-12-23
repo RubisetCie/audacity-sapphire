@@ -590,7 +590,7 @@ bool VST3Wrapper::IsActive() const noexcept
    return mActive;
 }
 
-void VST3Wrapper::FetchSettings(EffectSettings& settings)
+void VST3Wrapper::FetchSettings(EffectSettings& settings, bool resetState)
 {
    //TODO: perform version check
    {
@@ -604,7 +604,7 @@ void VST3Wrapper::FetchSettings(EffectSettings& settings)
       if(!vst3settings->processorState.has_value())
          vst3settings = &GetSettings(GetCache(mEffectClassInfo.ID())->defaultSettings);
 
-      if(vst3settings->processorState.has_value())
+      if(vst3settings->processorState.has_value() && resetState)
       {
          auto processorState = PresetsBufferStream::fromString(*vst3settings->processorState);
          processorState->seek(0, Steinberg::IBStream::kIBSeekSet);
@@ -757,7 +757,7 @@ bool VST3Wrapper::Initialize(EffectSettings& settings, Steinberg::Vst::SampleRat
 
    mSetup = setup;
 
-   FetchSettings(settings);
+   FetchSettings(settings, false);
 
    if(mEffectComponent->setActive(true) == kResultOk)
    {
