@@ -1095,7 +1095,7 @@ void WaveClip::WriteXML(size_t ii, XMLWriter &xmlFile) const
 }
 
 /*! @excsafety{Strong} */
-bool WaveClip::Paste(double t0, const WaveClip& o, bool append)
+bool WaveClip::Paste(double t0, const WaveClip& o, bool append, PastePosition pos)
 {
    const WaveClip *pOther = &o;
    WaveClipHolder dup;
@@ -1138,7 +1138,7 @@ bool WaveClip::Paste(double t0, const WaveClip& o, bool append)
 
    //seems like edge cases cannot happen, see WaveTrack::PasteWaveTrack
    auto &factory = GetFactory();
-   if (t0 == GetPlayStartTime())
+   if (t0 == GetPlayStartTime() && pos != MIDDLE)
    {
       finisher = ClearSequence(GetSequenceStartTime(), t0);
       SetTrimLeft(other.GetTrimLeft());
@@ -1148,7 +1148,7 @@ bool WaveClip::Paste(double t0, const WaveClip& o, bool append)
          .Commit();
       newClip = std::move(copy);
    }
-   else if (t0 == GetPlayEndTime())
+   else if (t0 == GetPlayEndTime() && pos != MIDDLE)
    {
       finisher = ClearSequence(GetPlayEndTime(), GetSequenceEndTime());
       SetTrimRight(other.GetTrimRight());
@@ -1195,7 +1195,7 @@ bool WaveClip::Paste(double t0, const WaveClip& o, bool append)
       newCutlines.push_back(std::move(cutlineCopy));
    }
 
-   sampleCount s0 = TimeToSequenceSamples(t0);
+   const sampleCount s0 = TimeToSequenceSamples(t0);
 
    // Because newClip was made above as a copy of (a copy of) other
    assert(other.NChannels() == newClip->NChannels());
@@ -1213,8 +1213,9 @@ bool WaveClip::Paste(double t0, const WaveClip& o, bool append)
    const auto sampleTime = 1.0 / GetRate();
    const auto timeOffsetInEnvelope =
       s0.as_double() * GetStretchRatio() / mRate + GetSequenceStartTime();
+   // Only perform ConsistencyCheck for the last clip to delete!
    mEnvelope->PasteEnvelope(
-      timeOffsetInEnvelope, newClip->mEnvelope.get(), sampleTime, append);
+      timeOffsetInEnvelope, newClip->mEnvelope.get(), sampleTime, append, pos == END);
    OffsetCutLines(t0, newClip->GetPlayEndTime() - newClip->GetPlayStartTime());
 
    for (auto &holder : newCutlines)
@@ -1395,7 +1396,7 @@ WaveClip::ClearSequenceFinisher::~ClearSequenceFinisher() noexcept
 
    // Collapse envelope
    auto sampleTime = 1.0 / pClip->GetRate();
-   pClip->GetEnvelope().CollapseRegion(t0, t1, sampleTime);
+   pClip->GetEnvelope().CollapseRegion(t0, t1, sampleTime, true);
 }
 
 /*! @excsafety{Weak}

@@ -2242,16 +2242,16 @@ void WaveTrack::Join(
       return;
 
    const auto firstToDelete = clipsToDelete[0].get();
+   const auto size = clipsToDelete.size();
    auto t = firstToDelete->GetPlayStartTime();
    //preserve left trim data if any
    newClip = CreateClip(
       firstToDelete->GetSequenceStartTime(),
       firstToDelete->GetName());
 
-   for (const auto &clip : clipsToDelete) {
-      // wxPrintf("t=%.6f adding clip (offset %.6f, %.6f ... %.6f)\n",
-      //       t, clip->GetOffset(), clip->GetStartTime(),
-      //       clip->GetEndTime());
+   WaveClip::PastePosition pos;
+   for (size_t i = 0; i < size; i++) {
+      const auto &clip = clipsToDelete[i].get();
 
       if (clip->GetPlayStartTime() - t > (1.0 / rate))
       {
@@ -2263,9 +2263,12 @@ void WaveTrack::Join(
          t += addedSilence;
       }
 
-      // wxPrintf("Pasting at %.6f\n", t);
-      bool success = newClip->Paste(t, *clip, true);
-      assert(success); // promise of DoCreateClip
+      // Compute the position
+      if (i == 0)           pos = WaveClip::PastePosition::BEGIN;
+      else if (i == size-1) pos = WaveClip::PastePosition::END;
+      else                  pos = WaveClip::PastePosition::MIDDLE;
+
+      newClip->Paste(t, *clip, true, pos);
 
       t = newClip->GetPlayEndTime();
 

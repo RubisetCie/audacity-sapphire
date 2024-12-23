@@ -112,14 +112,14 @@ public:
    // Handling Cut/Copy/Paste events
    // sampleDur determines when the endpoint of the collapse is near enough
    // to an endpoint of the domain, that an extra control point is not needed.
-   void CollapseRegion(double t0, double t1, double sampleDur) noexcept;
+   void CollapseRegion(double t0, double t1, double sampleDur, bool leave = false) noexcept;
 
    // Envelope has no notion of rate and control point times are not quantized;
    // but a tolerance is needed in the Paste routine, and better to inform it
    // of an appropriate number, than use hidden arbitrary constants.
    // The function is called 'PasteEnvelope' rather than 'Paste' to make it
    // easier to find where it is used in source code.
-   void PasteEnvelope(double t0, const Envelope *e, double sampleDur, bool append = false);
+   void PasteEnvelope(double t0, const Envelope *e, double sampleDur, bool append = false, bool check = true);
    bool TrimEnvelope(double t0, double t1, bool trim = false);
 
    void InsertSpace(double t0, double tlen);
@@ -146,7 +146,7 @@ public:
 
 private:
    std::pair< int, int > ExpandRegion
-      ( double t0, double tlen, double *pLeftVal, double *pRightVal );
+      ( double t0, double tlen, const double *pLeftVal, const double *pRightVal );
 
    void RemoveUnneededPoints
       ( size_t startAt, bool rightward, bool testNeighbors = true ) noexcept;

@@ -250,6 +250,13 @@ public:
 
    using Attachments = Site<WaveClip, WaveClipListener, ClientData::DeepCopying>;
 
+   enum PastePosition {
+      UNDEF,
+      BEGIN,
+      MIDDLE,
+      END
+   };
+
    //! typical constructor
    /*!
     @param width how many sequences
@@ -710,7 +717,7 @@ public:
     @post result: `this->NChannels() != other.NChannels() ||
        this->GetStretchRatio() != other.GetStretchRatio() || result`
     */
-   bool Paste(double t0, const WaveClip& other, bool append = false);
+   bool Paste(double t0, const WaveClip& other, bool append = false, PastePosition pos = UNDEF);
 
    //! Insert silence - note that this is an efficient operation for large
    //! amounts of silence
@@ -901,7 +908,7 @@ private:
          : pClip{ pClip }
          , t0{ t0 }, t1{ t1 }, clip_t0{ clip_t0 }, clip_t1{ clip_t1 }
       {}
-      ClearSequenceFinisher &operator =(ClearSequenceFinisher &&other)
+      ClearSequenceFinisher &operator =(ClearSequenceFinisher &&other) noexcept
       {
          *this = other;
          other.pClip = nullptr;

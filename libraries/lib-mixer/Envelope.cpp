@@ -40,7 +40,7 @@ a draggable point type.
 #include <wx/utils.h>
 
 static constexpr double VALUE_TOLERANCE = 0.001;
-static constexpr double TIME_TOLERANCE  = std::numeric_limits<double>::epsilon();
+static constexpr double EPSILON         = std::numeric_limits<double>::epsilon();
 static constexpr double BIG             = std::numeric_limits<double>::max();
 
 Envelope::Envelope(bool exponential, double minValue, double maxValue, double defaultValue)
@@ -62,55 +62,55 @@ bool Envelope::IsTrivial() const
 
 void Envelope::ConsistencyCheck()
 {
-   bool consistent = true;
+   size_t count = mEnv.size();
+   if ( count <= 1 )
+      return;
 
-   bool disorder;
-   do {
-      disorder = false;
-      for ( size_t ii = 0, count = mEnv.size(); ii < count; ) {
-         // Find range of points with equal T
-         auto nextI = ii + 1;
-         const double thisT = mEnv[ii].GetT();
-         const double thisV = mEnv[ii].GetVal();
-         const double nextT = nextI < count ? mEnv[nextI].GetT() : BIG;
-
-         if ( nextT < thisT )
-            disorder = true;
-
-         // Remove too many coincident times and values
-         for ( auto i = nextI; i < count && mEnv[i].GetT() < thisT + TIME_TOLERANCE; ++i ) {
-            if ( thisV != mEnv[i].GetVal() )
-               continue;
-            mEnv.erase(mEnv.begin() + i);
-            consistent = false;
-            --nextI, --count;
-         }
-
-         // Delete the point if the previous and next have the same value
-         if ( count != 1 ) {
-            const double pValue = (ii > 0) ? mEnv[ii - 1].GetVal() : thisV;
-            const double nValue = (ii < count - 1) ? mEnv[ii + 1].GetVal() : thisV;
-            if ( thisV == pValue && thisV == nValue ) {
-               mEnv.erase(mEnv.begin() + ii);
-               consistent = false;
-               --nextI, --count;
-            }
-         }
-
-         ii = nextI;
+   // First ensure the envelope points are in order
+   bool disorder = false;
+   for ( size_t i = 0; i < count-1; ) {
+      if ( mEnv[i].GetT() > mEnv[++i].GetT() ) {
+         disorder = true;
+         break;
       }
-
-      if (disorder) {
-         ++mVersion;
-         // repair it
-         std::stable_sort( mEnv.begin(), mEnv.end(),
-            []( const EnvPoint &a, const EnvPoint &b )
-               { return a.GetT() < b.GetT(); } );
-      }
-   } while ( disorder );
-
-   if ( !consistent )
+   }
+   if ( disorder ) {
+      std::stable_sort(mEnv.begin(), mEnv.end(),
+         [](const EnvPoint& a, const EnvPoint& b)
+            { return a.GetT() < b.GetT(); });
       ++mVersion;
+   }
+
+   // Remove too many coincident times and values
+   // (doesn't account for three points at the same time but diff values)
+   for ( ssize_t i = 0; i < count-1; i++ ) {
+      const double thisT = mEnv[i].GetT();
+      const double thisV = mEnv[i].GetVal();
+      const double nextT = mEnv[i+1].GetT();
+      const double nextV = mEnv[i+1].GetVal();
+      if ( nextT - thisT < EPSILON && fabs(thisV - nextV) <= EPSILON ) {
+         mEnv.erase(mEnv.begin() + (i--));
+         count--;
+      }
+   }
+
+   // Delete points if the previous and next have the same value
+   for ( ssize_t i = 0; i < count; i++ ) {
+      const double cValue = mEnv[i].GetVal();
+      const double pValue = (i > 0) ? mEnv[i - 1].GetVal() : cValue;
+      const double nValue = (i < count - 1) ? mEnv[i + 1].GetVal() : cValue;
+      if ( fabs(cValue - pValue) <= EPSILON &&
+           fabs(cValue - nValue) <= EPSILON ) {
+          mEnv.erase(mEnv.begin() + (i--));
+          count--;
+      }
+   }
+
+   // Since the consistency check, in theory, just delete unused points,
+   // we don't refresh the envelope (except in debug, where things don't usually go as the theory plans it).
+#if defined(_DEBUG)
+   ++mVersion;
+#endif
 }
 
 /// Rescale function for time tracks (could also be used for other tracks though).
@@ -391,7 +391,7 @@ void Envelope::Insert(const EnvPoint& p)
 }
 
 /*! @excsafety{No-fail} */
-void Envelope::CollapseRegion(double t0, double t1, double sampleDur) noexcept
+void Envelope::CollapseRegion(double t0, double t1, double sampleDur, bool leave) noexcept
 {
    if ( t1 <= t0 )
       return;
@@ -465,9 +465,9 @@ void Envelope::CollapseRegion(double t0, double t1, double sampleDur) noexcept
    }
 
    // See if the discontinuity is removable.
-   if ( rightPoint )
+   if ( rightPoint && !leave )
       RemoveUnneededPoints( begin, true );
-   if ( leftPoint )
+   if ( leftPoint && !leave )
       RemoveUnneededPoints( begin - 1, false );
 
    mTrackLen -= (t1 - t0);
@@ -480,12 +480,12 @@ void Envelope::CollapseRegion(double t0, double t1, double sampleDur) noexcept
 // envelope point applies to the first sample, but the t=tracklen
 // envelope point applies one-past the last actual sample.
 // t0 should be in the domain of this; if not, it is trimmed.
-void Envelope::PasteEnvelope( double t0, const Envelope *e, double sampleDur, bool append )
+void Envelope::PasteEnvelope( double t0, const Envelope *e, double sampleDur, bool append, bool check )
 {
    const bool wasEmpty = (this->mEnv.size() == 0);
    auto otherSize = e->mEnv.size();
    const double otherDur = e->mTrackLen;
-   const auto otherOffset = e->mOffset;
+   const double otherOffset = e->mOffset;
    //const auto deltat = otherOffset + otherDur;
 
    ++mVersion;
@@ -518,14 +518,14 @@ void Envelope::PasteEnvelope( double t0, const Envelope *e, double sampleDur, bo
       }
 
       // Open up a space
-      double leftVal = e->GetValue( 0 );
-      double rightVal = e->GetValueRelative( otherDur );
+      const double leftVal = e->GetValue(0);
+      const double rightVal = e->GetValueRelative(otherDur);
       // This range includes the right-side limit of the left end of the space,
       // and the left-side limit of the right end:
       const auto range = ExpandRegion( t0, otherDur, &leftVal, &rightVal );
       // Where to put the copied points from e -- after the first of the
       // two points in range:
-      auto insertAt = range.first + 1;
+      const auto insertAt = range.first + 1;
 
       // Copy points from e -- maybe skipping those at the extremes
       auto end = e->mEnv.end();
@@ -573,7 +573,8 @@ void Envelope::PasteEnvelope( double t0, const Envelope *e, double sampleDur, bo
    }
 
    // Guarantee monotonicity of times, against little round-off mistakes perhaps
-   ConsistencyCheck();
+   if (check)
+      ConsistencyCheck();
 }
 
 bool Envelope::TrimEnvelope(double t0, double t1, bool trim)
@@ -637,11 +638,11 @@ void Envelope::RemoveUnneededPoints(
       const auto &point = mEnv[ index ];
       auto when = point.GetT();
       auto val = point.GetVal();
-      Delete( index );  // try it to see if it's doing anything
+      mEnv.erase( mEnv.begin() + index ); // try it to see if it's doing anything
       auto val1 = GetValueRelative ( when, leftLimit );
       if( fabs( val - val1 ) > VALUE_TOLERANCE ) {
          // put it back, we needed it
-         Insert( index, EnvPoint{ when, val } );
+         mEnv.insert( mEnv.begin() + index, EnvPoint{ when, val } );
          return false;
       }
       else
@@ -687,7 +688,7 @@ void Envelope::RemoveUnneededPoints(
 
 /*! @excsafety{No-fail} */
 std::pair< int, int > Envelope::ExpandRegion
-   ( double t0, double tlen, double *pLeftVal, double *pRightVal )
+   ( double t0, double tlen, const double *pLeftVal, const double *pRightVal )
 {
    // t0 is relative time
 
