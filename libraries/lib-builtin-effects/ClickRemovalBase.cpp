@@ -167,7 +167,7 @@ bool ClickRemovalBase::ProcessOne(
       if (mbDidSomething)
       {
          // RemoveClicks() actually did something.
-         if (!track.SetFloats(buffer.get(), start + s, block))
+         if (!track.SetFloats(buffer.get(), start + s, block, widestSampleFormat, (len - (s + block)) <= windowSize / 2))
          {
             bResult = false;
             break;

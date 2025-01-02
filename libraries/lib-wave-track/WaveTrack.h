@@ -156,6 +156,7 @@ public:
          If the data are later narrowed from stored format, but not narrower
          than the effective, then no dithering will occur.
       */
+      , bool end = true
    );
 
    //! Random-access assignment of a range of samples
@@ -167,10 +168,11 @@ public:
          If the data are later narrowed from stored format, but not narrower
          than the effective, then no dithering will occur.
       */
+      , bool end = true
    )
    {
       return Set(reinterpret_cast<constSamplePtr>(buffer), floatSample,
-         start, len, effectiveFormat);
+         start, len, effectiveFormat, end);
    }
 
    bool AppendBuffer(constSamplePtr buffer, sampleFormat format, size_t len, unsigned stride, sampleFormat effectiveFormat);
@@ -659,6 +661,7 @@ public:
          If the data are later narrowed from stored format, but not narrower
          than the effective, then no dithering will occur.
       */
+      , bool end = true
    );
 
    const TypeInfo &GetTypeInfo() const override;

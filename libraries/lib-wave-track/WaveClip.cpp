@@ -169,10 +169,10 @@ sampleCount WaveClipChannel::GetPlayEndSample() const
 }
 
 void WaveClipChannel::SetSamples(constSamplePtr buffer, sampleFormat format,
-   sampleCount start, size_t len, sampleFormat effectiveFormat)
+   sampleCount start, size_t len, sampleFormat effectiveFormat, bool end)
 {
    return GetClip().SetSamples(miChannel,
-      buffer, format, start, len, effectiveFormat);
+      buffer, format, start, len, effectiveFormat, end);
 }
 
 void WaveClipChannel::WriteXML(XMLWriter &xmlFile) const
@@ -395,7 +395,7 @@ bool WaveClip::GetSamples(samplePtr buffers[], sampleFormat format,
 
 void WaveClip::SetSamples(size_t ii,
    constSamplePtr buffer, sampleFormat format,
-   sampleCount start, size_t len, sampleFormat effectiveFormat)
+   sampleCount start, size_t len, sampleFormat effectiveFormat, bool end)
 {
    assert(ii < NChannels());
    // use Strong-guarantee
@@ -403,7 +403,8 @@ void WaveClip::SetSamples(size_t ii,
       start + TimeToSamples(mTrimLeft), len, effectiveFormat);
 
    // use No-fail-guarantee
-   MarkChanged();
+   if (end)
+      MarkChanged();
 }
 
 void WaveClip::SetEnvelope(std::unique_ptr<Envelope> p)

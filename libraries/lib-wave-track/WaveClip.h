@@ -169,6 +169,7 @@ public:
          If the data are later narrowed from stored format, but not narrower
          than the effective, then no dithering will occur.
       */
+      , bool end = true
    );
 
    void WriteXML(XMLWriter &xmlFile) const;
@@ -553,6 +554,7 @@ public:
          If the data are later narrowed from stored format, but not narrower
          than the effective, then no dithering will occur.
       */
+      , bool end = true
    );
 
    //! @}

@@ -101,14 +101,14 @@ bool ReverseOneClip(WaveTrack &track,
       track.GetFloats(0, width, pointers1, second, block);
       reverseBuffers(pointers1, block);
       // Don't dither on later rendering if only reversing samples
+      len -= 2 * block;
       const bool success =
-         track.SetFloats(pointers1, first, block, narrowestSampleFormat)
+         track.SetFloats(pointers1, first, block, narrowestSampleFormat, len <= 1)
          &&
-         track.SetFloats(pointers0, second, block, narrowestSampleFormat);
+         track.SetFloats(pointers0, second, block, narrowestSampleFormat, len <= 1);
       if (!success)
          return false;
 
-      len -= 2 * block;
       first += block;
 
       if (!report(

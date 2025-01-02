@@ -164,14 +164,6 @@ WAVE_TRACK_API void SetFloatsFromTime(WaveChannel &channel,
    sampleFormat effectiveFormat, PlaybackDirection direction);
 
 /*!
- @copydoc SetFloatsFromTime(WaveChannel &, double, const float *, size_t,
-    sampleFormat, PlaybackDirection)
- */
-WAVE_TRACK_API void SetFloatsFromTime(Clip &channel,
-   double t, const float* buffer, size_t numSamples,
-   sampleFormat effectiveFormat, PlaybackDirection direction);
-
-/*!
  @brief Similar to GetNextClip, but returns `nullptr` if the neighbour
  clip is not adjacent.
  @pre `IsSortedByPlayStartTime(clips)`

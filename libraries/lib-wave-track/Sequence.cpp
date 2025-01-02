@@ -458,7 +458,9 @@ std::unique_ptr<Sequence> Sequence::Copy( const SampleBlockFactoryPtr &pFactory,
          // Increase ref count or duplicate file
    }
 
+#if defined(_DEBUG)
    dest->ConsistencyCheck(wxT("Sequence::Copy()"));
+#endif
 
    return dest;
 }
@@ -600,7 +602,9 @@ void Sequence::Paste(sampleCount s, const Sequence *src)
 
       // This consistency check won't throw, it asserts.
       // Proof that we kept consistency is not hard.
-      ConsistencyCheck(wxT("Paste branch two"), false);
+#if defined(_DEBUG)
+      ConsistencyCheck(wxT("Paste branch two"));
+#endif
       mSampleFormats.UpdateEffective(src->mSampleFormats.Effective());
       return;
    }
@@ -1635,9 +1639,11 @@ void Sequence::Delete(sampleCount start, sampleCount len)
 
       mNumSamples -= len;
 
+#if defined(_DEBUG)
       // This consistency check won't throw, it asserts.
       // Proof that we kept consistency is not hard.
-      ConsistencyCheck(wxT("Delete - branch one"), false);
+      ConsistencyCheck(wxT("Delete - branch one"));
+#endif
       return;
    }
 
@@ -1745,15 +1751,15 @@ void Sequence::Delete(sampleCount start, sampleCount len)
       (newBlock, mNumSamples - len, wxT("Delete - branch two"));
 }
 
-void Sequence::ConsistencyCheck(const wxChar *whereStr, bool mayThrow) const
+#if defined(_DEBUG)
+void Sequence::ConsistencyCheck(const wxChar *whereStr) const
 {
-   ConsistencyCheck(mBlock, mMaxSamples, 0, mNumSamples, whereStr, mayThrow);
+   ConsistencyCheck(mBlock, mMaxSamples, 0, mNumSamples, whereStr);
 }
 
 void Sequence::ConsistencyCheck
    (const BlockArray &mBlock, size_t maxSamples, size_t from,
-    sampleCount mNumSamples, const wxChar *whereStr,
-    bool WXUNUSED(mayThrow))
+    sampleCount mNumSamples, const wxChar *whereStr)
 {
    // Construction of the exception at the appropriate line of the function
    // gives a little more discrimination
@@ -1794,17 +1800,17 @@ void Sequence::ConsistencyCheck
                  wxT("Recommended course of action:\n")
                  wxT("Undo the failed operation(s), then export or save your work and quit."));
 
-      //if (mayThrow)
-         //throw *ex;
-      //else
-         wxASSERT(false);
+      wxASSERT(false);
    }
 }
+#endif
 
 void Sequence::CommitChangesIfConsistent
    (BlockArray &newBlock, sampleCount numSamples, const wxChar *whereStr)
 {
+#if defined(_DEBUG)
    ConsistencyCheck( newBlock, mMaxSamples, 0, numSamples, whereStr ); // may throw
+#endif
 
    // now commit
    // use No-fail-guarantee
@@ -1848,9 +1854,11 @@ void Sequence::AppendBlocksIfConsistent
    std::copy( additionalBlocks.begin(), additionalBlocks.end(),
               std::back_inserter( mBlock ) );
 
+#if defined(_DEBUG)
    // Check consistency only of the blocks that were added,
    // avoiding quadratic time for repeated checking of repeating appends
    ConsistencyCheck( mBlock, mMaxSamples, prevSize, numSamples, whereStr ); // may throw
+#endif
 
    // now commit
    // use No-fail-guarantee

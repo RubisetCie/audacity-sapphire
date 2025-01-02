@@ -308,10 +308,12 @@ public:
    static bool Read(samplePtr buffer, sampleFormat format,
              const SeqBlock &b,
              size_t blockRelativeStart, size_t len, bool mayThrow);
-
+   
+#if defined(_DEBUG)
    // This function throws if the track is messed up
    // because of inconsistent block starts & lengths
-   void ConsistencyCheck (const wxChar *whereStr, bool mayThrow = true) const;
+   void ConsistencyCheck (const wxChar *whereStr) const;
+#endif
 
    // This function prints information to stdout about the blocks in the
    // tracks and indicates if there are inconsistencies.
@@ -319,10 +321,11 @@ public:
       (const BlockArray &block, sampleCount numSamples, wxString *dest);
 
 private:
+#if defined(_DEBUG)
    static void ConsistencyCheck
       (const BlockArray &block, size_t maxSamples, size_t from,
-       sampleCount numSamples, const wxChar *whereStr,
-       bool mayThrow = true);
+       sampleCount numSamples, const wxChar *whereStr);
+#endif
 
    // The next two are used in methods that give a strong guarantee.
    // They either throw because final consistency check fails, or swap the

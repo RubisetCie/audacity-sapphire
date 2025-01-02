@@ -379,7 +379,7 @@ bool AutoDuckBase::ApplyDuckFade(
          buf[(i - pos).as_size_t()] *= DB_TO_LINEAR(gain);
       }
 
-      if (!track.SetFloats(buf.get(), pos, len))
+      if (!track.SetFloats(buf.get(), pos, len, widestSampleFormat, pos + len >= end))
       {
          cancel = true;
          break;

@@ -176,7 +176,7 @@ bool EffectTwoPassSimpleMono::ProcessOne(WaveChannel &track,
       // onto the track.
       if (mSecondPassDisabled || mPass != 0) {
          if (!outTrack.SetFloats(buffer1.get(), s - samples1,
-            samples1))
+            samples1, widestSampleFormat, s + samples2 >= end))
             return false;
       }
       else
@@ -218,7 +218,7 @@ bool EffectTwoPassSimpleMono::ProcessOne(WaveChannel &track,
    // onto the track.
    if (mSecondPassDisabled || mPass != 0) {
       if (!outTrack.SetFloats(buffer1.get(), s - samples1,
-         samples1))
+         samples1, widestSampleFormat, s >= end))
          return false;
    }
    else

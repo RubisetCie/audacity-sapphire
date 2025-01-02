@@ -340,7 +340,7 @@ bool NormalizeBase::ProcessOne(
       ProcessData(buffer.get(), block, offset);
 
       // Copy the newly-changed samples back onto the track.
-      if (!track.SetFloats(buffer.get(), s, block))
+      if (!track.SetFloats(buffer.get(), s, block, widestSampleFormat, s >= end))
       {
          rc = false;
          break;

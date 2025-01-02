@@ -1551,7 +1551,7 @@ bool WaveTrack::ReplaceTrackData(
     {
         const auto len = limitSampleBufferSize(GetMaxBlockSize(), end - pos);
         src.DoGet(0, channels, buffersCast, floatSample, seek, len, false);
-        if (!track.SetFloats(buffers, pos, len))
+        if (!track.SetFloats(buffers, pos, len, widestSampleFormat, pos + len >= end))
             retval = false;
         seek += len;
         pos += len;
@@ -2852,7 +2852,7 @@ WaveChannel::GetSampleView(double t0, double t1, bool mayThrow) const
 
 /*! @excsafety{Weak} */
 bool WaveChannel::Set(constSamplePtr buffer, sampleFormat format,
-   sampleCount start, size_t len, sampleFormat effectiveFormat)
+   sampleCount start, size_t len, sampleFormat effectiveFormat, bool end)
 {
    for (const auto &clip: Intervals())
    {
@@ -2889,7 +2889,7 @@ bool WaveChannel::Set(constSamplePtr buffer, sampleFormat format,
 
          clip->SetSamples(
             buffer + startDelta.as_size_t() * SAMPLE_SIZE(format),
-            format, inclipDelta, samplesToCopy.as_size_t(), effectiveFormat );
+            format, inclipDelta, samplesToCopy.as_size_t(), effectiveFormat, end );
       }
    }
    return true;
@@ -3341,14 +3341,14 @@ void WaveTrack::Resample(int rate, BasicUI::ProgressDialog *progress)
 }
 
 bool WaveTrack::SetFloats(const float *const *buffers,
-   sampleCount start, size_t len, sampleFormat effectiveFormat)
+   sampleCount start, size_t len, sampleFormat effectiveFormat, bool end)
 {
    bool result = true;
    size_t ii = 0;
    for (const auto &pChannel : Channels()) {
       const auto buffer = buffers[ii++];
       assert(buffer); // precondition
-      result = pChannel->SetFloats(buffer, start, len, effectiveFormat)
+      result = pChannel->SetFloats(buffer, start, len, effectiveFormat, end)
          && result;
    }
    return result;
