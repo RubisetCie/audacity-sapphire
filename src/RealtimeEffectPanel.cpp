@@ -56,6 +56,22 @@
 
 namespace
 {
+
+   void ToggleUi(
+      AudacityProject& project, RealtimeEffectState& state, wxString sourceName)
+   {
+      const auto ID = state.GetID();
+      const auto effectPlugin = EffectManager::Get().GetEffect(ID);
+
+      if (effectPlugin == nullptr)
+         return;
+
+      auto& effectStateUI = RealtimeEffectStateUI::Get(state);
+
+      effectStateUI.SetTargetName(sourceName);
+      effectStateUI.Toggle(project);
+   }
+
    using namespace MenuRegistry;
    class RealtimeEffectsMenuVisitor final : public Visitor<Traits> {
       wxMenu& mMenu;
@@ -489,8 +505,17 @@ namespace
                mEffectState->SetActive(mEnableButton->IsDown());
                if (mProject)
                {
-                  ProjectHistory::Get(*mProject).ModifyState(false);
-                  UndoManager::Get(*mProject).MarkUnsaved();
+                  auto const effectName{GetEffectName(*mEffectState)};
+                  ProjectHistory::Get(*mProject).PushState(
+                     /*! i18n-hint: undo history record
+                     first parameter - realtime effect name
+                     */
+                     XO("Change settings for realtime effect %s on %s").Format(effectName, mDelegate->GetSourceName()),
+                     /*! i18n-hint: undo history record
+                     first parameter - realtime effect name
+                     */
+                     XO("Change realtime effect %s on %s").Format(effectName, mDelegate->GetSourceName()),
+                     UndoPush::CONSOLIDATE);
                }
             }
          });
@@ -659,6 +684,8 @@ namespace
                   /*! i18n-hint: undo history record
                    first parameter - realtime effect name */
                   XO("Replace %s").Format(oldName));
+
+                  ToggleUi(project, *state, mDelegate->GetSourceName());
             }
          }
       }
@@ -1078,6 +1105,8 @@ public:
             XO("Added %s to %s").Format(effectName, mDelegate->GetSourceName()),
             //i18n-hint: undo history record
             XO("Add %s").Format(effectName));
+
+            ToggleUi(*mProject, *state, mDelegate->GetSourceName());
       }
    }
 
@@ -1500,7 +1529,7 @@ public:
    {
       wxWindow::SetBackgroundStyle(wxBG_STYLE_PAINT);
       SetCursor(wxCursor(wxCURSOR_SIZENS));
-      
+
       Bind(wxEVT_LEFT_DOWN, &SashLine::OnMouseDown, this);
       Bind(wxEVT_LEFT_UP, &SashLine::OnMouseUp, this);
       Bind(wxEVT_MOTION, &SashLine::OnMove, this);
@@ -1551,7 +1580,7 @@ private:
             mSplitter->GetSize().y - mSplitter->GetMinimumPaneSize()
          ));
    }
-   
+
    void OnPaint(wxPaintEvent&)
    {
       wxBufferedPaintDC dc(this);
@@ -1560,7 +1589,7 @@ private:
       dc.SetPen(*wxTRANSPARENT_PEN);
       dc.SetBrush(GetBackgroundColour());
       dc.DrawRectangle(rect);
-      
+
       dc.SetPen(GetForegroundColour());
       dc.SetBrush(*wxTRANSPARENT_BRUSH);
       const auto yy = rect.GetTop() + rect.GetHeight() / 2;
