@@ -89,7 +89,7 @@ public:
    bool IsActive() const noexcept;
 
    //!Fetch state from settings object, may change internal runtime data
-   void FetchSettings(EffectSettings&, bool resetState = true);
+   void FetchSettings(EffectSettings&);
    //!Saves current state inside settings object, clears all runtime data
    void StoreSettings(EffectSettings&) const;
 
@@ -110,10 +110,6 @@ public:
    void ProcessBlockStart(const EffectSettings& settings);
 
    //Used to send EffectSettings changes to the IAudioProcessor, while effect is inactive(!)
-
-   //! \param hasChanges optional output variable, set to true if flushing has
-   //! changed the DSP model state
-   void FlushParameters(EffectSettings& settings, bool* hasChanges = nullptr);
 
    //Intialize first, before calling to Process. It's safe to it use from another thread
    size_t Process(const float* const* inBlock, float* const* outBlock, size_t blockLen);

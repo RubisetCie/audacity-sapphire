@@ -82,10 +82,7 @@ void VST3Editor::OnIdle(wxIdleEvent& evt)
    {
       mAccess.ModifySettings([this](EffectSettings& settings)
       {
-         bool hasChanges{false};
-         mWrapper.FlushParameters(settings, &hasChanges);
-         if(hasChanges)
-            mWrapper.StoreSettings(settings);
+         mWrapper.StoreSettings(settings);
          return nullptr;
       });
    }
@@ -141,7 +138,6 @@ bool VST3Editor::ValidateUI()
    mAccess.ModifySettings([&](EffectSettings &settings){
       if (mDuration != nullptr)
          settings.extra.SetDuration(mDuration->GetValue());
-      mWrapper.FlushParameters(settings);
       mWrapper.StoreSettings(settings);
       return nullptr;
    });
@@ -170,8 +166,6 @@ void VST3Editor::OnClose()
    mAccess.ModifySettings([&](EffectSettings &settings){
       if (mDuration != nullptr)
          settings.extra.SetDuration(mDuration->GetValue());
-      //Flush changes if there is no processing performed at the moment
-      mWrapper.FlushParameters(settings);
       mWrapper.StoreSettings(settings);
       return nullptr;
    });

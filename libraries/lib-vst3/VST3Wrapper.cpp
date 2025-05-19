@@ -110,14 +110,12 @@ wxString ParametersToString(const std::map<Steinberg::Vst::ParamID, Steinberg::V
 VST3EffectSettings& GetSettings(EffectSettings& settings)
 {
    auto vst3settings = settings.cast<VST3EffectSettings>();
-   assert(vst3settings);
    return *vst3settings;
 }
 
 const VST3EffectSettings& GetSettings(const EffectSettings& settings)
 {
    auto vst3settings = settings.cast<VST3EffectSettings>();
-   assert(vst3settings);
    return *vst3settings;
 }
 
@@ -590,7 +588,7 @@ bool VST3Wrapper::IsActive() const noexcept
    return mActive;
 }
 
-void VST3Wrapper::FetchSettings(EffectSettings& settings, bool resetState)
+void VST3Wrapper::FetchSettings(EffectSettings& settings)
 {
    //TODO: perform version check
    {
@@ -600,18 +598,15 @@ void VST3Wrapper::FetchSettings(EffectSettings& settings, bool resetState)
       auto cleanup = finally([&] { componentHandler->EndStateChange(); });
 
       //Restore state
-      const auto* vst3settings = &GetSettings(settings);
-      if(!vst3settings->processorState.has_value())
-         vst3settings = &GetSettings(GetCache(mEffectClassInfo.ID())->defaultSettings);
-
-      if(vst3settings->processorState.has_value() && resetState)
+      auto* vst3settings = &GetSettings(settings);
+      if(vst3settings->processorState.has_value())
       {
          auto processorState = PresetsBufferStream::fromString(*vst3settings->processorState);
          processorState->seek(0, Steinberg::IBStream::kIBSeekSet);
          if(mEffectComponent->setState(processorState) == Steinberg::kResultOk)
          {
             processorState->seek(0, Steinberg::IBStream::kIBSeekSet);
-            if(mEditController->setComponentState(processorState) == Steinberg::kResultOk)
+            if (mEditController->setComponentState(processorState) == Steinberg::kResultOk)
             {
                if(vst3settings->controllerState.has_value())
                {
@@ -757,7 +752,7 @@ bool VST3Wrapper::Initialize(EffectSettings& settings, Steinberg::Vst::SampleRat
 
    mSetup = setup;
 
-   FetchSettings(settings, false);
+   FetchSettings(settings);
 
    if(mEffectComponent->setActive(true) == kResultOk)
    {
@@ -803,6 +798,8 @@ void VST3Wrapper::ProcessBlockStart(const EffectSettings& settings)
 void VST3Wrapper::ConsumeChanges(const EffectSettings& settings)
 {
    const auto& vst3settings = GetSettings(settings);
+   if(!(&vst3settings))
+      return;
    for(auto& p : vst3settings.parameterChanges)
    {
       auto it = std::find_if(mParameters.begin(), mParameters.end(), [&p](const auto& v) { return v.first == p.first; });
@@ -811,50 +808,6 @@ void VST3Wrapper::ConsumeChanges(const EffectSettings& settings)
       else
          mParameters.push_back(p);
    }
-}
-
-//Used as a workaround for issue #2555: some plugins do not accept changes
-//via IEditController::setParamNormalized, but seem to read current
-//parameter values directly from the DSP model.
-//
-//When processing is disabled this call helps synchronize internal state of the
-//IEditController, so that next time UI is opened it displays correct values.
-//
-//As a side effect subsequent call to IAudioProcessor::process may flush
-//plugin internal buffers
-void VST3Wrapper::FlushParameters(EffectSettings& settings, bool* hasChanges)
-{
-   if(!mActive)
-   {
-      auto componentHandler = static_cast<ComponentHandler*>(mComponentHandler.get());
-      componentHandler->FlushCache(settings);
-
-      const auto doProcessing = !GetSettings(settings).parameterChanges.empty();
-
-      if(hasChanges != nullptr)
-         *hasChanges = doProcessing;
-
-      if(!doProcessing)
-         return;
-
-      SetupProcessing(*mEffectComponent, mSetup);
-      mActive = true;
-      if(mEffectComponent->setActive(true) == Steinberg::kResultOk)
-      {
-         ConsumeChanges(settings);
-         if(mAudioProcessor->setProcessing(true) != Steinberg::kResultFalse)
-         {
-            mProcessContext.sampleRate = mSetup.sampleRate;
-            mProcessContext.state = 0;
-            Process(nullptr, nullptr, 0);
-            mAudioProcessor->setProcessing(false);
-         }
-      }
-      mEffectComponent->setActive(false);
-      mActive = false;
-   }
-   else if(hasChanges != nullptr)
-      *hasChanges = false;
 }
 
 size_t VST3Wrapper::Process(const float* const* inBlock, float* const* outBlock, size_t blockLen)
