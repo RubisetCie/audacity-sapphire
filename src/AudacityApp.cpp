@@ -1302,8 +1302,11 @@ void AudacityApp::ShowSplashScreen() {
    // BG: Create a temporary window to set as the top window
    wxImage logoimage((const char**)Audacity_splash_xpm);
    logoimage.Scale(logoimage.GetWidth() * (2.0 / 3.0), logoimage.GetHeight() * (2.0 / 3.0), wxIMAGE_QUALITY_HIGH);
+#ifdef __WXMSW__
+   // We need to mirror the image for right-to-left languages on Windows only
    if (GetLayoutDirection() == wxLayout_RightToLeft)
       logoimage = logoimage.Mirror();
+#endif
    wxBitmap logo(logoimage);
 
    mSplashScreen = std::make_unique<wxSplashScreen>(
@@ -1695,6 +1698,14 @@ bool AudacityApp::InitPart2()
       project = ProjectManager::New();
    }
 
+   // Update Manager may spawn a modal dialog, we need to hide the splash screen before that
+   bool splashFadeOut = !playingJournal;
+   HideSplashScreen(splashFadeOut);
+
+#if defined(HAVE_UPDATES_CHECK)
+   UpdateManager::Start(playingJournal);
+#endif
+
    if (!playingJournal && ProjectSettings::Get(*project).GetShowSplashScreen())
    {
       // This may do a check-for-updates at every start up.
@@ -1705,14 +1716,6 @@ bool AudacityApp::InitPart2()
       WhatsNewDialog::Show(*project);
 #endif
    }
-
-   // Update Manager may spawn a modal dialog, we need to hide the splash screen before that
-   bool splashFadeOut = !playingJournal;
-   HideSplashScreen(splashFadeOut);
-
-#if defined(HAVE_UPDATES_CHECK)
-   UpdateManager::Start(playingJournal);
-#endif
 
    Importer::Get().Initialize();
    ExportPluginRegistry::Get().Initialize();

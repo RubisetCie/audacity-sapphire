@@ -47,6 +47,7 @@ for drawing different aspects of the label and its text box.
 
 const FileNames::FileType LabelTrack::SubripFiles{ XO("SubRip text file"), { wxT("srt") }, true };
 const FileNames::FileType LabelTrack::WebVTTFiles{ XO("WebVTT file"), { wxT("vtt") }, true };
+const FileNames::FileType LabelTrack::AllSupportedFiles{ XO("Supported label file"), { wxT("srt"), wxT("txt") }, true };
 
 EnumSetting<bool> LabelStyleSetting {
    wxT("/FileFormats/LabelStyleChoice"),
@@ -522,8 +523,11 @@ LabelStruct LabelStruct::Import(wxTextFile &file, int &index, LabelFormat format
       // Labels in audacity should be only one line, so join multiple lines
       // with spaces.  This is not reversed on export.
       while (index < (int)file.GetLineCount() &&
-             !file.GetLine(index).IsEmpty())
+             !file.GetLine(index).IsEmpty()) 
+      {
          title += " " + file.GetLine(index);
+         index++;
+      }
 
       index++; // Skip over empty line
 

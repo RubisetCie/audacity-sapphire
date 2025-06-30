@@ -32,6 +32,9 @@ private:
    void OnWatchReleaseVideo(wxCommandEvent&);
    void OnGoToMuseHub(wxCommandEvent&);
    void OnGoToAudioCom(wxCommandEvent&);
+   
+   wxBitmap Rescale(const wxBitmap& bmp, int width, int height);
+   wxBitmap LoadEmbeddedPNG(const unsigned char* data, size_t len);
 
    DECLARE_EVENT_TABLE()
 };
