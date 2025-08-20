@@ -6,16 +6,16 @@
 # Translators:
 # Link Winterberg, 2024
 # Pritam Shekhawat, 2024
-# Bashishtha Narayan Singh <bashishtha.singh@gmail.com>, 2024
+# bashishtha <bashishtha.singh@gmail.com>, 2025
 #
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: audacity 3.7.4\n"
+"Project-Id-Version: audacity 3.7.5\n"
 "Report-Msgid-Bugs-To: audacity-translation@lists.sourceforge.net\n"
-"POT-Creation-Date: 2025-06-10 14:25+0300\n"
+"POT-Creation-Date: 2025-08-04 17:39+0200\n"
 "PO-Revision-Date: 2024-09-20 19:15+0000\n"
-"Last-Translator: Bashishtha Narayan Singh <bashishtha.singh@gmail.com>, 2024\n"
+"Last-Translator: bashishtha <bashishtha.singh@gmail.com>, 2025\n"
 "Language-Team: Hindi (https://app.transifex.com/audacity/teams/164520/hi/)\n"
 "Language: hi\n"
 "MIME-Version: 1.0\n"
@@ -1146,17 +1146,17 @@ msgstr "गायन 2"
 #. i18n-hint: This is the name of an effect preset
 #: libraries/lib-builtin-effects/ReverbBase.cpp
 msgid "Dance Vocal"
-msgstr ""
+msgstr "नृत्य गायन"
 
 #. i18n-hint: This is the name of an effect preset
 #: libraries/lib-builtin-effects/ReverbBase.cpp
 msgid "Modern Vocal"
-msgstr ""
+msgstr "आधुनिक गायन"
 
 #. i18n-hint: This is the name of an effect preset
 #: libraries/lib-builtin-effects/ReverbBase.cpp
 msgid "Voice Tail"
-msgstr ""
+msgstr "गूँजती आवाज"
 
 #. i18n-hint: This is the name of an effect preset
 #: libraries/lib-builtin-effects/ReverbBase.cpp
@@ -1196,7 +1196,7 @@ msgstr "गिरजाघर"
 #. i18n-hint: This is the name of an effect preset
 #: libraries/lib-builtin-effects/ReverbBase.cpp
 msgid "Big Cave"
-msgstr ""
+msgstr "बड़ी गुफा"
 
 #: libraries/lib-builtin-effects/ReverbBase.cpp
 #: resources/EffectsMenuDefaults.xml
@@ -2064,9 +2064,8 @@ msgid "WebVTT file"
 msgstr ""
 
 #: libraries/lib-label-track/LabelTrack.cpp
-#, fuzzy
 msgid "Supported label file"
-msgstr "निर्यातित लेबल शैली :"
+msgstr ""
 
 #: libraries/lib-label-track/LabelTrack.cpp
 msgid "S&tandard"
@@ -2091,7 +2090,7 @@ msgstr "नाम ट्रैक"
 
 #: libraries/lib-label-track/LabelTrack.cpp
 msgid "Importing WebVTT files is not currently supported."
-msgstr ""
+msgstr "WebVTT फ़ाइलों को आयात करना वर्तमान में समर्थित नहीं है."
 
 #: libraries/lib-label-track/LabelTrack.cpp
 msgid "One or more saved labels could not be read."
@@ -2986,6 +2985,8 @@ msgid ""
 "in the track Spectrogram settings and select the\n"
 "frequency range for the effect to act on."
 msgstr ""
+"'स्पेक्ट्रल प्रभाव' का उपयोग करने के लिए, 'स्पेक्ट्रल चयन' सक्षम करें\n"
+"ट्रैक में प्रभाव पर कार्रवाई करने के लिए स्पेक्ट्रोग्राम सेटिंग्स और आवृत्ति रेंज चुनें."
 
 #: libraries/lib-nyquist-effects/NyquistBase.cpp
 #, c-format
@@ -3256,7 +3257,7 @@ msgstr "यह प्रोजेक्ट Audacity के नए संस्�
 #: libraries/lib-project-file-io/ProjectFileIO.cpp
 #, c-format
 msgid "This project was created using an older Audacity version. Once saved, the project can only be opened with Audacity version %s or newer."
-msgstr ""
+msgstr "यह परियोजना एक पुराने Audacity संस्करण का उपयोग करके बनाई गई थी. एक बार सहेजे जाने के बाद, परियोजना को केवल Audacity संस्करण %s या नए के साथ खोला जा सकता है."
 
 #: libraries/lib-project-file-io/ProjectFileIO.cpp
 msgid "Project update required"
@@ -4628,19 +4629,17 @@ msgid "File type:"
 msgstr "फाइल प्रकार :"
 
 #: libraries/lib-wx-wrappers/ImageCarousel.cpp
-#, fuzzy
 msgid "Previous slide"
-msgstr "पिछला कतरन"
+msgstr ""
 
 #: libraries/lib-wx-wrappers/ImageCarousel.cpp
-#, fuzzy
 msgid "Next slide"
-msgstr "अगला क्लिप"
+msgstr ""
 
 #: libraries/lib-wx-wrappers/ImageCarousel.cpp
-#, fuzzy, c-format
+#, c-format
 msgid "Slide %d of %d, %s. %s"
-msgstr "%s, %d  कुल %d क्लिप में से %s"
+msgstr ""
 
 #: libraries/lib-wx-wrappers/ImageCarousel.cpp
 #, c-format
@@ -7343,7 +7342,7 @@ msgstr ""
 
 #: modules/sharing/mod-cloud-audiocom/ui/dialogs/CloudLocationDialog.cpp
 msgid "Your project is backed up privately on audio.com. You can access your work from any device and collaborate on your project with others. Cloud saving is free for a limited number of projects."
-msgstr ""
+msgstr "आपकी परियोजना audio.com पर निजी तौर पर सहेजी गई है. आप किसी भी डिवाइस से अपने काम तक पहुँच सकते हैं और दूसरों के साथ अपनी परियोजना पर सहयोग कर सकते हैं. क्लाउड में सहेजना केवल सीमित संख्या में परियोजनाओं के लिए निःशुल्क है."
 
 #: modules/sharing/mod-cloud-audiocom/ui/dialogs/CloudLocationDialog.cpp
 msgid "&Save to Cloud"
@@ -7502,7 +7501,7 @@ msgid ""
 msgstr ""
 
 #: modules/sharing/mod-cloud-audiocom/ui/dialogs/LoginDialog.cpp
-msgid "Create an account to save to the cloud"
+msgid "Create a free cloud storage account to access your projects and audio from any device"
 msgstr ""
 
 #: modules/sharing/mod-cloud-audiocom/ui/dialogs/LoginDialog.cpp
@@ -7515,6 +7514,10 @@ msgstr ""
 
 #: modules/sharing/mod-cloud-audiocom/ui/dialogs/LoginDialog.cpp
 msgid "Continue with Facebook"
+msgstr ""
+
+#: modules/sharing/mod-cloud-audiocom/ui/dialogs/LoginDialog.cpp
+msgid "Or use email and password"
 msgstr ""
 
 #: modules/sharing/mod-cloud-audiocom/ui/dialogs/LoginDialog.cpp
@@ -11546,7 +11549,7 @@ msgstr "अंशांकन पूर्ण"
 
 #: src/WhatsNewDialog.cpp
 msgid "<font color=\"#000000\">"
-msgstr ""
+msgstr "<font color=\"#000000\">"
 
 #: src/WhatsNewDialog.cpp
 msgid "Sign up to Audacity's cloud saving platform"
@@ -11646,9 +11649,8 @@ msgid "Complete your Audacity cloud setup with audio.com"
 msgstr ""
 
 #: src/WhatsNewDialog.cpp
-#, fuzzy
 msgid "What's new in Audacity"
-msgstr "Audacity %s में नया क्या है"
+msgstr ""
 
 #: src/WhatsNewDialog.cpp
 msgid "Watch the release video"
@@ -11667,9 +11669,8 @@ msgid "Take part in survey"
 msgstr ""
 
 #: src/WhatsNewDialog.cpp
-#, fuzzy
 msgid "Audacity feature survey"
-msgstr "Audacity स्टार्टअप विफलता"
+msgstr ""
 
 #: src/WhatsNewDialog.cpp
 msgid "25th Anniversary Merchandise!"
@@ -11680,9 +11681,8 @@ msgid "Visit now"
 msgstr ""
 
 #: src/WhatsNewDialog.cpp
-#, fuzzy
 msgid "Visit our new Audacity merch store"
-msgstr "यह एक Audacity प्रोजेक्ट फ़ाइल नहीं है"
+msgstr ""
 
 #: src/WhatsNewDialog.cpp
 msgid "View tutorials"
@@ -11693,9 +11693,8 @@ msgid "Visit our forum"
 msgstr ""
 
 #: src/WhatsNewDialog.cpp
-#, fuzzy
 msgid "&Don't show this again at start up"
-msgstr "फिर यह संदेश शुरुआत में न दिखाएँ"
+msgstr ""
 
 #. i18n-hint: An item name followed by a value, with appropriate separating punctuation
 #: src/commands/AudacityCommand.cpp src/effects/EffectUIServices.cpp
