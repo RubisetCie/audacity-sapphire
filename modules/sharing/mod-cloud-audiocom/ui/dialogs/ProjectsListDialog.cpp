@@ -25,6 +25,7 @@
 #include "CodeConversions.h"
 #include "ExportUtils.h"
 #include "Internat.h"
+#include "UrlEncode.h"
 #include "wxWidgetsWindowPlacement.h"
 
 #include "ProjectManager.h"
@@ -175,7 +176,7 @@ public:
       auto cancellationContext = concurrency::CancellationContext::Create();
 
       auto future = CloudSyncService::Get().GetProjects(
-         cancellationContext, page, mPageSize, ToUTF8(searchTerm));
+         cancellationContext, page, mPageSize, UrlEncode(ToUTF8(searchTerm)));
 
       while (std::future_status::ready != future.wait_for(100ms))
       {
@@ -747,6 +748,8 @@ void ProjectsListDialog::SetupHandlers()
 
 void ProjectsListDialog::OnBeforeRefresh()
 {
+   mNextPageButtonWasFocused = mNextPageButton->HasFocus();
+   mPrevPageButtonWasFocused = mPrevPageButton->HasFocus();
    mProjectsTable->Enable(false);
    mPrevPageButton->Enable(false);
    mNextPageButton->Enable(false);
@@ -755,6 +758,9 @@ void ProjectsListDialog::OnBeforeRefresh()
 void ProjectsListDialog::OnRefreshCompleted(bool success)
 {
    mProjectsTable->Enable(success);
+
+   bool nextPageButtonFocused = mNextPageButton->HasFocus();
+   bool prevPageButtonFocused = mPrevPageButton->HasFocus();
 
    mPrevPageButton->Enable(success && mProjectsTableData->HasPrevPage());
    mNextPageButton->Enable(success && mProjectsTableData->HasNextPage());
@@ -766,6 +772,18 @@ void ProjectsListDialog::OnRefreshCompleted(bool success)
 #if wxUSE_ACCESSIBILITY
    mAccessible->TableDataUpdated();
 #endif
+
+   if (mNextPageButtonWasFocused || mPrevPageButtonWasFocused)
+   {
+      BasicUI::CallAfter([this]() {
+         auto buttonToFocus =
+            (mPrevPageButtonWasFocused && mPrevPageButton->IsEnabled()) ? mPrevPageButton :
+            (mNextPageButtonWasFocused && mNextPageButton->IsEnabled()) ? mNextPageButton :
+            mPrevPageButton->IsEnabled() ? mPrevPageButton : mNextPageButton;
+
+         buttonToFocus->SetFocus();
+      });
+   }
 }
 
 void ProjectsListDialog::FormatPageLabel()
