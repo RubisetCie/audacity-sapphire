@@ -522,6 +522,7 @@ struct Adapter final : ViewportCallbacks {
          mwWindow->SetToDefaultSize();
    }
 
+private:
    wxWeakRef<ProjectWindow> mwWindow;
 };
 }

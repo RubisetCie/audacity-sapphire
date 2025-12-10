@@ -851,7 +851,7 @@ void WaveTrackMenuTable::OnMergeStereo(wxCommandEvent &)
       XO("Make Stereo"));
 
    using namespace RefreshCode;
-   mpData->result = RefreshAll | FixScrollbars;
+   mpData->result = RefreshAll;
 }
 
 /// Split a stereo track (or more-than-stereo?) into two (or more) tracks...
@@ -914,7 +914,7 @@ void WaveTrackMenuTable::OnSplitStereo(wxCommandEvent &)
       XO("Split"));
 
    using namespace RefreshCode;
-   mpData->result = RefreshAll | FixScrollbars;
+   mpData->result = RefreshAll;
 }
 
 /// Split a stereo track into two mono tracks...
@@ -929,7 +929,7 @@ void WaveTrackMenuTable::OnSplitStereoMono(wxCommandEvent &)
       XO("Split to Mono"));
 
    using namespace RefreshCode;
-   mpData->result = RefreshAll | FixScrollbars;
+   mpData->result = RefreshAll;
 }
 
 PopupMenuTable *WaveTrackControls::GetMenuExtension(Track * pTrack)
