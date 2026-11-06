@@ -810,6 +810,50 @@ void VST3Wrapper::ConsumeChanges(const EffectSettings& settings)
    }
 }
 
+//Used as a workaround for issue #2555: some plugins do not accept changes
+//via IEditController::setParamNormalized, but seem to read current
+//parameter values directly from the DSP model.
+//
+//When processing is disabled this call helps synchronize internal state of the
+//IEditController, so that next time UI is opened it displays correct values.
+//
+//As a side effect subsequent call to IAudioProcessor::process may flush
+//plugin internal buffers
+void VST3Wrapper::FlushParameters(EffectSettings& settings, bool* hasChanges)
+{
+   if(!mActive)
+   {
+      auto componentHandler = static_cast<ComponentHandler*>(mComponentHandler.get());
+      componentHandler->FlushCache(settings);
+
+      const auto doProcessing = !GetSettings(settings).parameterChanges.empty();
+
+      if(hasChanges != nullptr)
+         *hasChanges = doProcessing;
+
+      if(!doProcessing)
+         return;
+
+      SetupProcessing(*mEffectComponent, mSetup);
+      mActive = true;
+      if(mEffectComponent->setActive(true) == Steinberg::kResultOk)
+      {
+         ConsumeChanges(settings);
+         if(mAudioProcessor->setProcessing(true) != Steinberg::kResultFalse)
+         {
+            mProcessContext.sampleRate = mSetup.sampleRate;
+            mProcessContext.state = 0;
+            Process(nullptr, nullptr, 0);
+            mAudioProcessor->setProcessing(false);
+         }
+      }
+      mEffectComponent->setActive(false);
+      mActive = false;
+   }
+   else if(hasChanges != nullptr)
+      *hasChanges = false;
+}
+
 size_t VST3Wrapper::Process(const float* const* inBlock, float* const* outBlock, size_t blockLen)
 {
    using namespace Steinberg;

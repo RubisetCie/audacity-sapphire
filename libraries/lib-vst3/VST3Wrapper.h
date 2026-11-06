@@ -111,6 +111,10 @@ public:
 
    //Used to send EffectSettings changes to the IAudioProcessor, while effect is inactive(!)
 
+   //! \param hasChanges optional output variable, set to true if flushing has
+   //! changed the DSP model state
+   void FlushParameters(EffectSettings& settings, bool* hasChanges = nullptr);
+
    //Intialize first, before calling to Process. It's safe to it use from another thread
    size_t Process(const float* const* inBlock, float* const* outBlock, size_t blockLen);
    

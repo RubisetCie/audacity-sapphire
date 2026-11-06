@@ -40,8 +40,6 @@
 #include "../images/Cloud_low_res.xpm"
 
 #include "../images/Audacity40Video.h"
-#include "../images/Audacity4Release.h"
-#include "../images/OpenVinoMH.h"
 #include "../images/AudacityMerchStore.h"
 #include "../images/AudioDotComPromo.h"
 #include "../images/AudioDotComPromoLight.h"
@@ -68,14 +66,12 @@ namespace
 #endif
 
 const char* WhatsNewURL = "https://youtu.be/QYM3TWf_G38?utm_source=au-app-au4-video&utm_medium=au-app-au4-video&utm_campaign=au-app-au4-video";
-const char* BetaURL = "http://audacityteam.org/next?utm_campaign=Beta%20Awareness&utm_source=AU3%20Popup";
 const char* ChangeLogURL = "https://support.audacityteam.org/additional-resources/changelog";
-const char* OpenVinoURL = "https://www.musehub.com/en-gb/plugin/openvino-ai-tools?utm_source=au-app-3-7-6-mh-welcome-open-vino&utm_medium=au-app-3-7-6-mh-welcome-open-vino&utm_campaign=au-app-3-7-6-mh-welcome-open-vino";
 const char* PromoURL = "https://audacityteam.org/audacitypromo";
 const char* AudioComURL = "https://audio.com/audacity/auth/sign-in?mtm_campaign=audacitydesktop&mtm_content=app_launch_popup";
 const char* AudacitySurveyURL = "https://audacityteam.org/survey";
 const char* AudacityMerchStoreURL = "https://audacity-shop.fourthwall.com/en-gbp/?utm_source=au-app-merch-store&utm_medium=merch-25y&utm_campaign=au-app-welcome-au-app-merch-store-merch-25y&utm_id=au-app-welcome";
-const char* MuseHubURL = "https://www.musehub.com/plugin/soap-voice-cleaner?utm_source=au-app&utm_medium=au-app-welcome-soap&utm_campaign=au-app-welcome-soap-mh";
+const char* MuseHubURL = "https://www.musehub.com/plugin/soap-voice-cleaner?utm_medium=Referral&utm_source=au&utm_campaign=MH_WW_REF_AU_DESKTOP_ALL_170826_crosslink&utm_content=welcome_screen";
 
 constexpr auto WindowWidth = 812;
 
@@ -147,7 +143,7 @@ void WhatsNewDialog::Populate(ShuttleGui& S)
 #endif
 
    std::vector<CarouselSnapshot> snapshots;
-   snapshots.reserve(5);
+   snapshots.reserve(4);
 
    // Render bitmaps at physical-pixel size so they stay sharp on HiDPI/Retina,
    // and tag them with the matching scale factor so wx lays them out using the
@@ -173,14 +169,6 @@ void WhatsNewDialog::Populate(ShuttleGui& S)
       return wxBitmap(img, -1, scale);
    };
 
-   snapshots.push_back(CarouselSnapshot(
-      XXO("Try the new Audacity 4 Beta release"),
-      makeBitmap(Audacity4Release_png, Audacity4Release_png_len),
-      BetaURL,
-      XXO("Test the Beta release"),
-      XXO("")
-   ));
-
    if (ModuleManager::Get().CheckModuleLoaded("mod-cloud-audiocom")) {
 
       auto displayLoginDialog = []() {
@@ -203,16 +191,6 @@ void WhatsNewDialog::Populate(ShuttleGui& S)
          XXO("")
       ));
    }
-
-#if 0
-   snapshots.push_back(CarouselSnapshot(
-      XXO("Get our free OpenVino AI tools"),
-      makeBitmap(OpenVinoMH_png, OpenVinoMH_png_len),
-      OpenVinoURL,
-      XXO("Get it on MuseHub"),
-      XXO("")
-   ));
-#endif
 
    snapshots.push_back(CarouselSnapshot(
       XXO("Help us decide the future of Audacity"),

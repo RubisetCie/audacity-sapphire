@@ -983,13 +983,14 @@ int AudioIO::StartStream(const TransportSequences &sequences,
    mPlaybackSchedule.GetPolicy().Initialize( mPlaybackSchedule, mRate );
 
    auto range = Extensions();
+   const double playStartTime = pStartTime ? *pStartTime : t0;
    successAudio = successAudio &&
       std::all_of(range.begin(), range.end(),
-         [this, &sequences, t0](auto &ext){
+         [this, &sequences, playStartTime](auto &ext){
             return ext.StartOtherStream(sequences,
               (mPortStreamV19 != NULL && mLastPaError == paNoError)
                  ? Pa_GetStreamInfo(mPortStreamV19) : nullptr,
-              t0, mRate ); });
+              playStartTime, mRate ); });
 
    if (!successAudio) {
       if (pListener && numCaptureChannels > 0)
@@ -1708,6 +1709,18 @@ void AudioIO::SetPaused(bool state, bool publish)
 
 double AudioIO::GetBestRate(bool capturing, bool playing, double sampleRate)
 {
+   // Opening ASIO streams at the device's current rate allows simultaneous
+   // playback with drivers that support it. The rate can be changed from the
+   // driver's control panel at any time, so it is never cached here.
+   if (AudioIOUseAsioDeviceSampleRate.Read()) {
+      const int asioDevIndex = playing ? getPlayDevIndex() : getRecordDevIndex();
+      if (DeviceManager::IsAsioDevice(asioDevIndex)) {
+         const double asioRate = DeviceManager::GetAsioDeviceCurrentSampleRate(asioDevIndex);
+         if (asioRate > 0.0)
+            return asioRate;
+      }
+   }
+
    // Check if we can use the cached value
    if (mCachedBestRateIn != 0.0 && mCachedBestRateIn == sampleRate
       && mCachedBestRatePlaying == playing && mCachedBestRateCapturing == capturing) {
