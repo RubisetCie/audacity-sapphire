@@ -744,22 +744,36 @@ void OnDuplicate(const CommandContext &context)
    auto &tracks = TrackList::Get(project);
    auto &selectedRegion = ViewInfo::Get(project).selectedRegion;
 
-   // This iteration is unusual because we add to the list inside the loop
+   std::vector<Track*> newTracks;
+   newTracks.reserve(tracks.Size());
    auto range = tracks.Selected();
-   auto last = *range.rbegin();
-   for (auto n : range) {
-      if (!n->SupportsBasicEditing())
-         continue;
+   auto selected = range.begin();
+   auto last = *tracks.rbegin();
+   bool edited = false;
 
-      // Make copies not for clipboard but for direct addition to the project
-      auto dest = n->Copy(selectedRegion.t0(), selectedRegion.t1(), false);
-      dest->MoveTo(std::max(selectedRegion.t0(), n->GetStartTime()));
-      tracks.Add(dest);
+   for (const auto pTrack : tracks) {
+      newTracks.push_back(pTrack);
+      if (pTrack == *selected) {
+         auto n = *selected; selected++;
 
+         if (!n->SupportsBasicEditing())
+            continue;
+
+         if (pTrack != last)
+            edited = true;
+
+         // Make copies not for clipboard but for direct addition to the project
+         auto dest = n->Copy(selectedRegion.t0(), selectedRegion.t1(), false);
+         dest->MoveTo(std::max(selectedRegion.t0(), n->GetStartTime()));
+         newTracks.push_back(dest.get());
+         tracks.Add(dest);
+      }
       // This break is really needed, else we loop infinitely
-      if (n == last)
+      if (pTrack == last)
          break;
    }
+   if (edited)
+      tracks.Permute(newTracks);
 
    ProjectHistory::Get( project )
       .PushState(XO("Duplicated"), XO("Duplicate"));
